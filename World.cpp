@@ -1,5 +1,13 @@
 #include "World.h"
 
+void Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
+{
+
+    this->cubesData[cubesCount] = std::move(cube);
+    this->cubesMap[x][y][z] = &cubesData[cubesCount];
+    this->cubesCount += 1;
+}
+
 void Chunk::generateCubes()
 {
     if (isGenerated) return;
@@ -11,9 +19,6 @@ void Chunk::generateCubes()
     {
         for (size_t j = 0; j < 16; j++)
         {
-            //for (size_t z = 0; z <= 0; z++)
-            //{
-
             const double frequency = 1.0f;
             const int32_t octaves = 40;
             const double fx = (frequency / 16.0);
@@ -21,29 +26,25 @@ void Chunk::generateCubes()
 
 
             auto height = perlin.octave2D_01((i + chunkPos.x) * fx, (j + chunkPos.y) * fy, octaves);
-            height *= 40.0;
+            height *= 1.0;
             height = floor(height);
 
 
-            Cube* c = new Cube();
-            c->position = glm::vec3((float)i + chunkPos.x, (float)height, (float)j + chunkPos.y);
-            c->idx = glm::vec3(i, height, j);
-            c->processMat();
+            //those cubes will be temporaily on the stack 
+            Cube c;
+            c.position = glm::vec3((float)i + chunkPos.x, (float)height, (float)j + chunkPos.y);
+            c.idx = glm::vec3(i, height, j);
+            c.processMat();
 
-            cubeMap[i][(int)height][j] = c;
-            cubes.push_back(c);
-
+            this->addCube(c, i, (int)height, j);
             for (size_t h = 0; h < height; h++)
             {
-                Cube* c = new Cube();
-                c->position = glm::vec3((float)i + chunkPos.x, (float)h, (float)j + chunkPos.y);
-                c->idx = glm::vec3(i, h, j);
-                c->processMat();
-                cubeMap[i][h][j] = c;
-                cubes.push_back(c);
+                Cube c;
+                c.position = glm::vec3((float)i + chunkPos.x, (float)h, (float)j + chunkPos.y);
+                c.idx = glm::vec3(i, h, j);
+                c.processMat();
+                addCube(c, i, (int) height, j);
             }
-
-            //}
 
         }
     }
@@ -52,25 +53,29 @@ void Chunk::generateCubes()
     calculateFaces();
 }
 
-Cube* Chunk::tryGetCube(int x, int y, int z)
+std::optional<Cube*> Chunk::tryGetCube(int x, int y, int z)
 {
-   if (x < 0 || x >= 16)
+   if (x < 0 || x >= CHUNK_SIZE_X)
    {
-      return nullptr;
+      return std::nullopt;
    }
-   if (z < 0 || z >= 16)
+   if (z < 0 || z >= CHUNK_SIZE_Z)
    {
-      return nullptr;
+      return std::nullopt;
    }
-   if (y < 0 || y >= 64)
+   if (y < 0 || y >= CHUNK_SIZE_Y)
    {
-      return nullptr;
+      return std::nullopt;
+   }
+   if (cubesMap[x][y][z] == nullptr)
+   {
+       return std::nullopt;
    }
 
-   return cubeMap[x][y][z];
+   return cubesMap[x][y][z];
 }
 
-std::vector<Cube*> Chunk::getNeighboringCubes(Cube* cb)
+std::vector<Cube*> Chunk::getNeighboringCubes(Cube& cb)
 {
    std::vector<Cube*> result;
    std::vector<glm::vec3> dirs = {
@@ -84,18 +89,21 @@ std::vector<Cube*> Chunk::getNeighboringCubes(Cube* cb)
 
    for (auto& direction : dirs)
    {
-      glm::vec3 neighborPositon = cb->idx + direction;
+      glm::vec3 neighborPositon = cb.idx + direction;
       auto neighborCube = tryGetCube(neighborPositon.x, neighborPositon.y, neighborPositon.z);
-      result.push_back(neighborCube);
+      if (neighborCube.has_value())
+      {
+          result.emplace_back(neighborCube.value());
+      }
    }
 
 
    return result;
 }
 
-void Chunk::calculateFace(Cube* cb)
+void Chunk::calculateFace(Cube& cb)
 {
-   auto idx = cb->idx;
+   auto idx = cb.idx;
    std::vector<glm::vec3> dirs = {
       glm::vec3(0,0,-1),
       glm::vec3(0,0 ,1),
@@ -107,15 +115,15 @@ void Chunk::calculateFace(Cube* cb)
 
 
    size_t iter = 0;
-   cb->facesToRender = 0;
+   cb.facesToRender = 0;
    for (auto& element : dirs)
    {
       glm::vec3 pos = idx + element;
       auto cube = tryGetCube(pos.x, pos.y, pos.z);
 
-      if (cube == nullptr || cube->dontDraw == true)
+      if (cube.has_value() == false || cube.value()->dontDraw == true)
       {
-         cb->facesToRender |= 1 << iter;
+         cb.facesToRender |= 1 << iter;
       }
       iter++;
    }
@@ -123,10 +131,10 @@ void Chunk::calculateFace(Cube* cb)
 
 void Chunk::calculateFaces()
 {
-   for (auto& cb : cubes)
-   {
-      calculateFace(cb);
-   }
+    for (size_t i = 0; i < cubesCount; i++)
+    {
+        calculateFace(cubesData[i]);
+    }
 }
 
 Chunk* World::getChunk(int i, int j)

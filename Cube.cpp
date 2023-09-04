@@ -42,16 +42,17 @@ Box3 Cube::getCollider()
    return Box3(m_vecMin_1, m_vecMax_1);
 }
 
-std::vector<glm::vec3> Cube::getVertices()
+std::array<glm::vec3, 8> Cube::getVertices()
 {
-   std::vector<glm::vec3> v;
-   for (auto element : verts)
-   {
-      element += position;
-      v.push_back(element);
-   }
+    if (!vertsCalculated)
+    {
+        for (auto& element : this->calculatedVerts)
+        {
+            element += this->position;
+        }
+    }
 
-   return v;
+    return calculatedVerts;
 }
 
 void Cube::processMat()
@@ -66,8 +67,7 @@ void Cube::draw()
    shader->setMat4("model", model);
    for (size_t i = 0; i < 6; i++)
    {
-      auto res = facesToRender & 1 << i;
-      if (res) {
+      if (facesToRender & 1 << i) {
          glDrawArrays(GL_TRIANGLES, i * 6, 6);
       }
    }
@@ -78,7 +78,7 @@ void Cube::init()
 {
    //przednia, prawa, lewa, z tylu, na gorze, na dole
    const float cubeVertices[] = {
-      -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //tylnia
+      -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //back 
       0.5f, -0.5f, -0.5f,  0.1f, 0.0f,
       0.5f,  0.5f, -0.5f,  0.1f, 0.1f,
       0.5f,  0.5f, -0.5f,  0.1f, 0.1f,
@@ -86,28 +86,28 @@ void Cube::init()
       -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
 
 
-      -0.5f, -0.5f,  0.5f,  0.1f, 0.0f, //przednia
+      -0.5f, -0.5f,  0.5f,  0.1f, 0.0f, //front
       0.5f, -0.5f,  0.5f,  0.2f, 0.0f,
       0.5f,  0.5f,  0.5f,  0.2f, 0.1f,
       0.5f,  0.5f,  0.5f,  0.2f, 0.1f,
       -0.5f,  0.5f,  0.5f,  0.1f, 0.1f,
       -0.5f, -0.5f,  0.5f,  0.1f, 0.0f,
 
-      -0.5f,  0.5f,  0.5f,  0.3f, 0.0f, //lewa
+      -0.5f,  0.5f,  0.5f,  0.3f, 0.0f, //left
       -0.5f,  0.5f, -0.5f,  0.3f, 0.1f,
       -0.5f, -0.5f, -0.5f,  0.2f, 0.1f,
       -0.5f, -0.5f, -0.5f,  0.2f, 0.1f,
       -0.5f, -0.5f,  0.5f,  0.2f, 0.0f,
       -0.5f,  0.5f,  0.5f,  0.3f, 0.0f,
 
-      0.5f,  0.5f,  0.5f,  0.4f, 0.0f, //prawa
+      0.5f,  0.5f,  0.5f,  0.4f, 0.0f, //right
       0.5f,  0.5f, -0.5f,  0.4f, 0.1f,
       0.5f, -0.5f, -0.5f,  0.3f, 0.1f,
       0.5f, -0.5f, -0.5f,  0.3f, 0.1f,
       0.5f, -0.5f,  0.5f,  0.3f, 0.0f,
       0.5f,  0.5f,  0.5f,  0.4f, 0.0f,
 
-      -0.5f, -0.5f, -0.5f,  0.4f, 0.1f, //dolna
+      -0.5f, -0.5f, -0.5f,  0.4f, 0.1f, //bottom
       0.5f, -0.5f, -0.5f,  0.5f, 0.1f,
       0.5f, -0.5f,  0.5f,  0.5f, 0.0f,
       0.5f, -0.5f,  0.5f,  0.5f, 0.0f,
@@ -115,7 +115,7 @@ void Cube::init()
       -0.5f, -0.5f, -0.5f,  0.4f, 0.1f,
 
 
-      -0.5f,  0.5f, -0.5f,  0.5f, 0.1f, //gorna
+      -0.5f,  0.5f, -0.5f,  0.5f, 0.1f, //up
       0.5f,  0.5f, -0.5f,  0.6f, 0.1f,
       0.5f,  0.5f,  0.5f,  0.6f, 0.0f,
       0.5f,  0.5f,  0.5f,  0.6f, 0.0f,

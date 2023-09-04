@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Cube.h"
 #include "Crosshair.h"
+#include <mutex>
 #define CHUNK_SQUARE_LEN 5
 
 class Controllable {
@@ -12,25 +13,62 @@ class Controllable {
    void onMouseClick(GLFWwindow* window, int button, int action, int mods) {};
 };
 
-class Entity : public Transformable {
+struct KeyboardData {
+private:
+	std::bitset<16> pressedKeys;
+
+
 public:
-   void draw() {};
+	static constexpr inline uint8_t KEY_W = 0;
+	static constexpr inline uint8_t KEY_S = 1;
+	static constexpr inline uint8_t KEY_A = 2;
+	static constexpr inline uint8_t KEY_D = 3;
+	static constexpr inline uint8_t KEY_SPACE = 4;
+	bool isLocked = false;
+
+	KeyboardData()
+	{	
+		pressedKeys = 0;
+	}
+
+	void setKeyPressed(uint8_t key)
+	{
+		pressedKeys[key] = true;
+	}
+
+	void reset()
+	{
+		pressedKeys.reset();
+	}
+
+	bool isKeyPressed(uint8_t key)
+	{;
+		return pressedKeys[key];
+	}
+
 };
 
 
 struct RayCollisionData {
-   Cube* cube = nullptr;
-   Chunk* chunk = nullptr;
-   float collisionDistance = 0.0f;
+	RayCollisionData(Cube& cube, Chunk* chunk, float collisionDistance) : cube(cube)
+	{
+		this->chunk = chunk;
+		this->collisionDistance = collisionDistance;
+	}
 
+	Cube& cube;
+	Chunk* chunk = nullptr;
+	float collisionDistance = 0.0f;
 };
 
 
-class Player : public Entity, Controllable {
+class Player : public Controllable {
 public:
    Camera* camera = nullptr;
    Cube* playerModel = nullptr;
    World* world = nullptr;
+
+   glm::vec3 position = glm::vec3(1.0f);
 
    glm::vec3 velocity = glm::vec3(0);
    bool isGrounded = false;
@@ -61,6 +99,7 @@ public:
    Shader* crosshairShader;
    Shader* blockShader;
    std::vector<Cube*> cubes;
+   KeyboardData& kbData;
 
 
 
@@ -70,10 +109,10 @@ public:
    bool pointInChunk(glm::vec2 ppos, Chunk& c);
    void loadChunksAt(int x, int y);
 
-   void onKbInput(GLFWwindow* window);
+   void processKb(GLFWwindow* window);
    void onMouseMove(GLFWwindow* window, double xpos, double ypos);
    void onMouseClick(GLFWwindow* window, int button, int action, int mods);
 
-   Game();
+   Game(KeyboardData& kbData);
 };
 

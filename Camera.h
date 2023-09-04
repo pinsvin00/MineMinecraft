@@ -22,7 +22,7 @@ public:
    glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
    bool isGrounded = true;
 
-   void mouse_callback(GLFWwindow* window, double xpos, double ypos)
+   void mouse_callback(GLFWwindow* window, float xpos, float ypos)
    {
       if (firstMouse)
       {

@@ -20,17 +20,13 @@
 #include "Crosshair.h"
 #include "m_math.h"
 
+//global variables
+
 int _w = 800, _h = 600;
+bool gameShouldClose = false;
 
-void windowSizeChangedCallback(GLFWwindow* window, int w, int h)
-{
-   _w = w;
-   _h = h;
-   glViewport(0, 0, w, h);
-}
-
-float cameraSpeed = 20.0f;
 float deltaTime = 0.0f;	// Time between current frame and last frame
+float fps = 60.0f;
 float lastFrame = 0.0f; // Time of last frame
 
 unsigned int Cube::VAO = 0;
@@ -40,10 +36,57 @@ unsigned int Crosshair::VBO = 0;
 
 Game* game = nullptr;
 GLFWwindow* window = nullptr;
+KeyboardData kbData;
 
-void processInput(GLFWwindow* window)
+//main functions
+
+void windowSizeChangedCallback(GLFWwindow* window, int w, int h)
 {
-   game->onKbInput(window);
+   _w = w;
+   _h = h;
+   glViewport(0, 0, w, h);
+}
+
+void processInput()
+{
+    while (!gameShouldClose)
+    {
+
+        while (kbData.isLocked)
+        {}
+
+        if (glfwGetKey(window, GLFW_KEY_W))
+        {
+            kbData.setKeyPressed(KeyboardData::KEY_W);
+        }
+        if (glfwGetKey(window, GLFW_KEY_S))
+        {
+            kbData.setKeyPressed(KeyboardData::KEY_S);
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_A))
+        {
+            kbData.setKeyPressed(KeyboardData::KEY_A);
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_D))
+        {
+            kbData.setKeyPressed(KeyboardData::KEY_D);
+        }
+
+        if (glfwGetKey(window, GLFW_KEY_SPACE))
+        {
+            kbData.setKeyPressed(KeyboardData::KEY_SPACE);
+        }
+    }
+}
+
+void runGameLoop()
+{
+    while (!gameShouldClose)
+    {
+        game->processGame();
+    }
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -57,10 +100,75 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 }
 
 
-
-void render_loop()
+void loggerLoop()
 {
-  
+    while (true)
+    {
+        //delta time is in seconds
+        std::cout << "FPS : " << std::floor(1.0 / game->deltaTime);
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+        system("cls");
+    }
+
+
+
+}
+
+void render()
+{
+    while (!glfwWindowShouldClose(window))
+    {
+
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
+
+        auto time = (float)glfwGetTime();
+        game->blockShader->use();
+
+        glm::mat4 model = glm::mat4(1.0f);
+        glm::mat4 view = glm::mat4(1.0f);
+        glm::mat4 projection = glm::mat4(1.0f);
+
+        view = glm::lookAt(
+            game->player->camera->position,
+            game->player->camera->position + game->player->camera->front,
+            game->player->camera->cameraUp
+        );
+
+        projection = glm::perspective(glm::radians(90.0f), (float)_w / (float)_h, 0.1f, 200.0f);
+
+        game->blockShader->setMat4("view", view);
+        game->blockShader->setMat4("projection", projection);
+
+        for (size_t i = 0; i < game->world->loadedChunks.size(); i++)
+        {
+            auto chunk = game->world->loadedChunks[i];
+            for (size_t i = 0; i < chunk->cubesCount; i++)
+            {
+                auto cube = chunk->cubesData[i];
+                if (!cube.dontDraw && !cube.isInitialized)
+                {
+                    cube.shader = game->blockShader;
+                    cube.draw();
+                }
+            }
+        }
+
+
+
+        game->crosshairShader->use();
+        game->crosshairShader->setFloat("width", (float)_w);
+        game->crosshairShader->setFloat("height", (float)_h);
+
+        game->crosshair->draw();
+
+        float currentFrame = glfwGetTime();
+        game->deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
 }
 
 
@@ -77,7 +185,7 @@ int main()
    _w = 1280;
    _h = 720;
 
-   window = glfwCreateWindow(_w, _h, "My app", nullptr, nullptr);
+   window = glfwCreateWindow(_w, _h, "MineMinecraft", nullptr, nullptr);
    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 
@@ -99,7 +207,7 @@ int main()
       exit(1);
    }
 
-   game = new Game();
+   game = new Game(kbData);
 
 
    //SHADER RELATED STUFF
@@ -160,79 +268,18 @@ int main()
    //Vertices for square with textures
    glEnable(GL_DEPTH_TEST);
 
+   std::thread game_thread(runGameLoop);
+   std::thread input_thread(processInput);
+   std::thread logger_thread(loggerLoop);
+   game_thread.detach();
+   input_thread.detach();
+   logger_thread.detach();
 
-   glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-   glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+   render();
 
-
-   //cube1 = new Cube();
-   //cube1->shader = game->blockShader;
-   //cube1->position = glm::vec3(0.0f, 5.0f, 0.0f);
-
-   //std::thread render_thread(render_loop);
-   std::thread game_thread([] (Game* game, GLFWwindow * window) {
-         while (!glfwWindowShouldClose(window))
-         {
-            game->processGame();
-         }
-      }, game, window);
-
-
-   while (!glfwWindowShouldClose(window))
-   {
-      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
-
-      processInput(window);
-      auto time = (float)glfwGetTime();
-      game->blockShader->use();
-
-      glm::mat4 model = glm::mat4(1.0f);
-      glm::mat4 view = glm::mat4(1.0f);
-      glm::mat4 projection = glm::mat4(1.0f);
-
-      view = glm::lookAt(
-         game->player->camera->position,
-         game->player->camera->position + game->player->camera->front,
-         game->player->camera->cameraUp
-      );
-
-      projection = glm::perspective(glm::radians(90.0f), (float)_w / (float)_h, 0.1f, 200.0f);
-
-      game->blockShader->setMat4("view", view);
-      game->blockShader->setMat4("projection", projection);
-
-      for (size_t i = 0; i < game->world->loadedChunks.size(); i++)
-      {
-         auto chunk = game->world->loadedChunks[i];
-         for (size_t i = 0; i < chunk->cubes.size(); i++)
-         {
-            auto cube = chunk->cubes[i];
-            if (!cube->dontDraw)
-            {
-               cube->shader = game->blockShader;
-               cube->draw();
-            }
-         }
-      }
-
-
-
-      game->crosshairShader->use();
-      game->crosshairShader->setFloat("width", _w);
-      game->crosshairShader->setFloat("height", _h);
-
-      game->crosshair->draw();
-
-      float currentFrame = glfwGetTime();
-      game->deltaTime = currentFrame - lastFrame;
-      lastFrame = currentFrame;
-
-      glfwSwapBuffers(window);
-      glfwPollEvents();
-   }
-
-   game_thread.join();
+   gameShouldClose = true;
+   //game_thread.join();
+   //input_thread.join();
 
 
    glfwTerminate();
