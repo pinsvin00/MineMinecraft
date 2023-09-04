@@ -1,5 +1,18 @@
 #include "Cube.h"
 
+void Cube::setPosition(glm::vec3 position)
+{
+   this->position = std::move(position);
+   this->processMat();
+}
+
+Cube::Cube(glm::vec3 position, Block block)
+{
+   this->idx = glm::vec3(0, 0, 0);
+   this->position = position;
+   this->blockKind = block;
+}
+
 bool Cube::checkCollision(Cube* c)
 {
    auto myVerts = this->getVertices();
@@ -46,14 +59,11 @@ void Cube::processMat()
    model = glm::mat4(1.0f);
    model = glm::translate(model, position);
    model = glm::scale(model, scale);
-   shader->setMat4("model", model);
 }
 
 void Cube::draw()
 {
-   processMat();
    shader->setMat4("model", model);
-
    for (size_t i = 0; i < 6; i++)
    {
       auto res = facesToRender & 1 << i;

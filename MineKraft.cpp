@@ -2,6 +2,7 @@
 //
 
 #include <iostream>
+#include <thread>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include "Shader.h"
@@ -37,9 +38,8 @@ unsigned int Cube::VBO = 0;
 unsigned int Crosshair::VAO = 0;
 unsigned int Crosshair::VBO = 0;
 
-Cube* cube1;
-
-Game* game;
+Game* game = nullptr;
+GLFWwindow* window = nullptr;
 
 void processInput(GLFWwindow* window)
 {
@@ -58,6 +58,11 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 
 
 
+void render_loop()
+{
+  
+}
+
 
 int main()
 {
@@ -72,7 +77,7 @@ int main()
    _w = 1280;
    _h = 720;
 
-   GLFWwindow* window = glfwCreateWindow(_w, _h, "My app", nullptr, nullptr);
+   window = glfwCreateWindow(_w, _h, "My app", nullptr, nullptr);
    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
 
@@ -146,9 +151,6 @@ int main()
    game->blockShader->setInt("texture1", 0);
    game->blockShader->setInt("texture2", 1);
 
-
-
-
    glActiveTexture(GL_TEXTURE0);
    glBindTexture(GL_TEXTURE_2D, textures[0]);
    glActiveTexture(GL_TEXTURE1);
@@ -163,9 +165,18 @@ int main()
    glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
 
 
-   cube1 = new Cube();
-   cube1->shader = game->blockShader;
-   cube1->position = glm::vec3(0.0f, 5.0f, 0.0f);
+   //cube1 = new Cube();
+   //cube1->shader = game->blockShader;
+   //cube1->position = glm::vec3(0.0f, 5.0f, 0.0f);
+
+   //std::thread render_thread(render_loop);
+   std::thread game_thread([] (Game* game, GLFWwindow * window) {
+         while (!glfwWindowShouldClose(window))
+         {
+            game->processGame();
+         }
+      }, game, window);
+
 
    while (!glfwWindowShouldClose(window))
    {
@@ -190,10 +201,6 @@ int main()
 
       game->blockShader->setMat4("view", view);
       game->blockShader->setMat4("projection", projection);
-
-
-      cube1->draw();
-      cube1->facesToRender = 0b111111;
 
       for (size_t i = 0; i < game->world->loadedChunks.size(); i++)
       {
@@ -221,10 +228,11 @@ int main()
       game->deltaTime = currentFrame - lastFrame;
       lastFrame = currentFrame;
 
-      game->processGame();
       glfwSwapBuffers(window);
       glfwPollEvents();
    }
+
+   game_thread.join();
 
 
    glfwTerminate();

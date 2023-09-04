@@ -1,5 +1,4 @@
 #include "Game.h"
-#define CHUNK_SQUARE_LEN 10
 
 Game::Game()
 {
@@ -192,6 +191,10 @@ void Player::onKbInput(GLFWwindow* window)
 
 }
 
+void Player::draw() {
+   playerModel->draw();
+}
+
 void Player::onMouseMove(GLFWwindow* window, double xpos, double ypos)
 {
    camera->mouse_callback(window, xpos, ypos);
@@ -243,6 +246,15 @@ RayCollisionData Player::getCubeAtGunPoint()
    return data;
 }
 
+Player::Player()
+{
+   playerModel = new Cube();
+   camera = new Camera();
+
+   position = glm::vec3(0.0f, 3.0f, 0.0f);
+   camera->position = position;
+}
+
 void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 {
    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
@@ -281,8 +293,8 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       glm::vec3 distance = (this->camera->front * collisionData.collisionDistance);
       glm::vec3 pointCoords = this->position + distance;
 
-      cube1->position = pointCoords;
-      cube1->scale = glm::vec3(0.1f, 0.1f, 0.1f);
+      //cube1->position = pointCoords;
+      //cube1->scale = glm::vec3(0.1f, 0.1f, 0.1f);
 
       ////find closest face of cube, or check collision with each face?
       std::vector<Box3> faceBoxes = {

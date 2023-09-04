@@ -4,6 +4,7 @@
 #include "Camera.h"
 #include "Cube.h"
 #include "Crosshair.h"
+#define CHUNK_SQUARE_LEN 5
 
 class Controllable {
    void onKbInput(GLFWwindow* window) {};
@@ -24,7 +25,6 @@ struct RayCollisionData {
 
 };
 
-extern Cube* cube1;
 
 class Player : public Entity, Controllable {
 public:
@@ -36,26 +36,15 @@ public:
    bool isGrounded = false;
    float deltaTime = 0.0f;
 
-
    void onKbInput(GLFWwindow* window);
-   void draw() {
-      playerModel->draw();
-   }
-
+   void draw();
    void onMouseMove(GLFWwindow* window, double xpos, double ypos);
    void onMouseClick(GLFWwindow* window, int button, int action, int mods);
    void move(glm::vec3 transofrmation);
 
    RayCollisionData getCubeAtGunPoint();
 
-   Player()
-   {
-      playerModel = new Cube();
-      camera = new Camera();
-
-      position = glm::vec3(0.0f, 3.0f, 0.0f);
-      camera->position = position;
-   }
+   Player();
 };
 
 class Game
@@ -73,21 +62,18 @@ public:
    Shader* blockShader;
    std::vector<Cube*> cubes;
 
-   Game();
 
-
-   void loadChunksAt(int x, int y);
-
-   bool pointInChunk(glm::vec2 ppos, Chunk& c);
 
    void processGame();
-   void findNewCurrentChunk();
 
+   void findNewCurrentChunk();
+   bool pointInChunk(glm::vec2 ppos, Chunk& c);
+   void loadChunksAt(int x, int y);
 
    void onKbInput(GLFWwindow* window);
    void onMouseMove(GLFWwindow* window, double xpos, double ypos);
    void onMouseClick(GLFWwindow* window, int button, int action, int mods);
 
-
+   Game();
 };
 

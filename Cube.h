@@ -21,12 +21,8 @@ public:
 class Cube : Transformable {
    Shader* cubeShader = nullptr;
 public:
-
-   Cube(glm::vec3 position, Block block)
-   {
-      this->position = position;
-      this->blockKind = block;
-   }
+   void setPosition(glm::vec3 position);
+   Cube(glm::vec3 position, Block block);
    Cube() = default;
 
    glm::mat4 model = glm::mat4(1.0f);
