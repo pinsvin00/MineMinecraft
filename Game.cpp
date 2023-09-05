@@ -6,15 +6,28 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    Crosshair::init();
    Cube::init();
 
+   deltaTime = 0.0f;
    blockShader = new Shader("shader.hlsl", "shader_frag.hlsl"); // you can name your shader files however you like
    crosshairShader = new Shader("crosshair_vert.hlsl", "crosshair_frag.hlsl");
-   world = new World();
-   world->init();
-   player = new Player();
-   crosshair = new Crosshair();
-   this->player->world = world;
-   deltaTime = 0.0f;
+   crosshair = std::make_unique<Crosshair>();
+
+   world = std::make_shared<World>();
    this->loadChunksAt(0, 0);
+
+   auto firstChunk = world->getChunk(0, 0);
+   glm::vec3 playerPosition = glm::vec3(1.0f);
+   for (size_t i = 0; i < firstChunk->cubesCount; i++)
+   {
+      auto& cube = firstChunk->cubesData[i];
+      if (cube.position.y > 20.0f)
+      {
+         playerPosition = cube.position + glm::vec3(0.0f, 2.0f, 0.0f);
+         break;
+      }
+   }
+
+
+   this->player = std::make_unique<Player>(world, playerPosition);
 }
 
 void Game::loadChunksAt(int x, int y)
@@ -22,11 +35,14 @@ void Game::loadChunksAt(int x, int y)
    Chunk* chunk = world->getChunk(x, y);
    currentChunk = chunk;
 
+   auto loadedChunksIdxs = new std::vector<std::pair<int,int>>();
+   auto loadedChunks = new std::vector<Chunk*>();
+
    for (int xo = -CHUNK_SQUARE_LEN; xo <= CHUNK_SQUARE_LEN; xo++)
    {
       for (int yo = -CHUNK_SQUARE_LEN; yo <= CHUNK_SQUARE_LEN; yo++)
       {
-         world->loadedChunksIdxs.push_back(
+         loadedChunksIdxs->push_back(
             std::make_pair(x + xo, y + yo)
          );
          Chunk* chunk = world->getChunk(x + xo, y + yo);
@@ -34,9 +50,16 @@ void Game::loadChunksAt(int x, int y)
          {
             chunk->generateCubes();
          }
-         world->loadedChunks.push_back(chunk);
+         loadedChunks->push_back(chunk);
       }
    }
+
+   delete world->loadedChunks;
+   delete world->loadedChunksIdxs;
+
+   world->loadedChunks = loadedChunks;
+   world->loadedChunksIdxs = loadedChunksIdxs;
+
 }
 
 inline bool Game::pointInChunk(glm::vec2 ppos, Chunk& c)
@@ -57,6 +80,11 @@ inline bool Game::pointInChunk(glm::vec2 ppos, Chunk& c)
 void Game::processGame()
 {
    this->processKb(nullptr);
+
+   float currentTime = glfwGetTime();
+   this->deltaTime = currentTime - lastTime;
+   this->lastTime = currentTime;
+
    player->deltaTime = deltaTime;
    if (player->velocity.y != 0.0f)
    {
@@ -85,12 +113,17 @@ void Game::processGame()
 
 void Game::findNewCurrentChunk()
 {
+   std::cout << "New chunk loading!" << std::endl;
    glm::vec2 ppos = glm::vec2(this->player->position.x, this->player->position.z);
    Chunk* currentChunk = nullptr;
-   for (size_t i = 0; i < world->loadedChunksIdxs.size(); i++)
+
+   auto &loadedChunks = *world->loadedChunks;
+   auto &loadedChunksIdxs = *world->loadedChunksIdxs;
+
+   for (size_t i = 0; i < loadedChunksIdxs.size(); i++)
    {
       //check if the player is in the chunk
-      auto chunkC = world->loadedChunksIdxs[i];
+      auto chunkC = loadedChunksIdxs[i];
       Chunk* k = world->getChunk(chunkC.first, chunkC.second);
 
       //left down coord of the chunk
@@ -104,9 +137,11 @@ void Game::findNewCurrentChunk()
          currentChunk = k;
       }
    }
-   world->loadedChunks.clear();
-   world->loadedChunksIdxs.clear();
+   std::vector<Chunk*>* newWorldChunks = new std::vector<Chunk*>();
+   std::vector<std::pair<int,int>>* newWorldIdx = new std::vector<std::pair<int,int>>();
 
+   newWorldIdx->reserve(CHUNK_ARR_SIZ);
+   newWorldChunks->reserve(CHUNK_ARR_SIZ);
 
    if (currentChunk != nullptr)
    {
@@ -114,7 +149,7 @@ void Game::findNewCurrentChunk()
       {
          for (int yo = -CHUNK_SQUARE_LEN; yo <= CHUNK_SQUARE_LEN; yo++)
          {
-            world->loadedChunksIdxs.push_back(
+            newWorldIdx->push_back(
                std::make_pair(currentChunk->chunkIdx.x + xo, currentChunk->chunkIdx.y + yo)
             );
             Chunk* chunk = world->getChunk(currentChunk->chunkIdx.x + xo, currentChunk->chunkIdx.y + yo);
@@ -122,15 +157,18 @@ void Game::findNewCurrentChunk()
             {
                chunk->generateCubes();
             }
-            world->loadedChunks.push_back(chunk);
+            newWorldChunks->push_back(chunk);
          }
       }
 
       this->currentChunk = currentChunk;
    }
 
+   delete world->loadedChunks;
+   delete world->loadedChunksIdxs;
 
-
+   world->loadedChunks     = newWorldChunks;
+   world->loadedChunksIdxs = newWorldIdx;
 
 }
 
@@ -139,11 +177,10 @@ void Game::processKb(GLFWwindow* window)
     auto cameraDir = player->camera->front;
     cameraDir.y = 0;
 
-    const float playerSpeed = 0.001f;
+    const float playerSpeed = 10.0f;
 
-    this->kbData.isLocked = true;
 
-    //cameraDir = glm::normalize(cameraDir);w
+    cameraDir = glm::normalize(cameraDir);
 
     if (this->kbData.isKeyPressed(KeyboardData::KEY_W))
     {
@@ -151,7 +188,7 @@ void Game::processKb(GLFWwindow* window)
         //mov.y = 0.0f;
         player->position += mov;
         player->camera->position += mov;
-        player->playerModel->position += mov;
+        player->collider->position += mov;
     }
     if (this->kbData.isKeyPressed(KeyboardData::KEY_S))
     {
@@ -159,14 +196,14 @@ void Game::processKb(GLFWwindow* window)
         //mov.y = 0.0f;
         player->position -= mov;
         player->camera->position -= mov;
-        player->playerModel->position -= mov;
+        player->collider->position -= mov;
     }
 
     if (this->kbData.isKeyPressed(KeyboardData::KEY_A))
     {
         player->position -= glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;
         player->camera->position -= glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
-        player->playerModel->position -= glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
+        player->collider->position -= glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
 
     }
 
@@ -174,7 +211,7 @@ void Game::processKb(GLFWwindow* window)
     {
         player->position += glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
         player->camera->position += glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
-        player->playerModel->position += glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
+        player->collider->position += glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
     }
 
     if (this->kbData.isKeyPressed(KeyboardData::KEY_SPACE))
@@ -183,7 +220,6 @@ void Game::processKb(GLFWwindow* window)
         player->isGrounded = false;
     }
 
-    this->kbData.isLocked = false;
     this->kbData.reset();
 
 }
@@ -198,14 +234,9 @@ void Game::onMouseClick(GLFWwindow* window, int button, int action, int mods)
    player->onMouseClick(window, button, action, mods);
 }
 
-void Player::onKbInput(GLFWwindow* window)
-{
-
-
-}
 
 void Player::draw() {
-   playerModel->draw();
+   collider->draw();
 }
 
 void Player::onMouseMove(GLFWwindow* window, double xpos, double ypos)
@@ -221,7 +252,7 @@ RayCollisionData Player::getCubeAtGunPoint()
    Chunk* cubesChunk = nullptr;
    float collisionDistanceCube = -1.0f;
 
-   for (auto& chunk : this->world->loadedChunks)
+   for (auto& chunk : *this->world->loadedChunks)
    {
        for (size_t i = 0; i < chunk->cubesCount; i++)
        {
@@ -256,13 +287,19 @@ RayCollisionData Player::getCubeAtGunPoint()
    return data;
 }
 
-Player::Player()
+Player::Player(std::shared_ptr<World> world, glm::vec3 position) : world(world)
 {
-   playerModel = new Cube();
-   camera = new Camera();
+   collider = std::make_unique<Cube>();
+   camera = std::make_unique<Camera>();
+   
+   this->setPosition(position);
 
-   position = glm::vec3(0.0f, 3.0f, 0.0f);
-   camera->position = position;
+}
+
+void Player::setPosition(glm::vec3 pos)
+{
+   this->position = std::move(pos);
+   this->camera->position = std::move(pos);
 }
 
 void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
@@ -362,7 +399,13 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 
 void Player::move(glm::vec3 transofrmation)
 {
-   this->playerModel->position += transofrmation;
+   this->collider->position += transofrmation;
    this->camera->position += transofrmation;
-   this->playerModel->position += transofrmation;
+   this->collider->position += transofrmation;
+}
+
+RayCollisionData::RayCollisionData(Cube& cube, Chunk* chunk, float collisionDistance) : cube(cube)
+{
+   this->chunk = chunk;
+   this->collisionDistance = collisionDistance;
 }

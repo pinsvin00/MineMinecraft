@@ -4,8 +4,7 @@
 #include "Camera.h"
 #include "Cube.h"
 #include "Crosshair.h"
-#include <mutex>
-#define CHUNK_SQUARE_LEN 5
+#include <mutex>S
 
 class Controllable {
    void onKbInput(GLFWwindow* window) {};
@@ -50,39 +49,33 @@ public:
 
 
 struct RayCollisionData {
-	RayCollisionData(Cube& cube, Chunk* chunk, float collisionDistance) : cube(cube)
-	{
-		this->chunk = chunk;
-		this->collisionDistance = collisionDistance;
-	}
-
+   RayCollisionData(Cube& cube, Chunk* chunk, float collisionDistance);
 	Cube& cube;
 	Chunk* chunk = nullptr;
 	float collisionDistance = 0.0f;
 };
 
 
-class Player : public Controllable {
+class Player {
 public:
-   Camera* camera = nullptr;
-   Cube* playerModel = nullptr;
-   World* world = nullptr;
+   std::unique_ptr<Camera> camera = nullptr;
+   std::unique_ptr<Cube>   collider = nullptr;
+   std::shared_ptr<World>  world = nullptr;
 
    glm::vec3 position = glm::vec3(1.0f);
 
-   glm::vec3 velocity = glm::vec3(0);
+   glm::vec3 velocity = glm::vec3(0.0f);
    bool isGrounded = false;
    float deltaTime = 0.0f;
 
-   void onKbInput(GLFWwindow* window);
    void draw();
    void onMouseMove(GLFWwindow* window, double xpos, double ypos);
    void onMouseClick(GLFWwindow* window, int button, int action, int mods);
    void move(glm::vec3 transofrmation);
+   void setPosition(glm::vec3 position);
 
    RayCollisionData getCubeAtGunPoint();
-
-   Player();
+   Player(std::shared_ptr<World> world, glm::vec3 position);
 };
 
 class Game
@@ -90,11 +83,12 @@ class Game
 public:
    Chunk* currentChunk = nullptr;
 
-   World* world;
-   Player* player;
-   Crosshair* crosshair;
+   std::shared_ptr<World> world;
+   std::unique_ptr<Player> player;
+   std::unique_ptr<Crosshair> crosshair;
 
    float deltaTime;
+   float lastTime;
 
    Shader* crosshairShader;
    Shader* blockShader;

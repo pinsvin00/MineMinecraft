@@ -20,17 +20,15 @@ void Chunk::generateCubes()
         for (size_t j = 0; j < 16; j++)
         {
             const double frequency = 1.0f;
-            const int32_t octaves = 40;
+            const int32_t octaves = 50;
             const double fx = (frequency / 16.0);
             const double fy = (frequency / 16.0);
 
 
             auto height = perlin.octave2D_01((i + chunkPos.x) * fx, (j + chunkPos.y) * fy, octaves);
-            height *= 1.0;
+            height *= 30.0;
             height = floor(height);
 
-
-            //those cubes will be temporaily on the stack 
             Cube c;
             c.position = glm::vec3((float)i + chunkPos.x, (float)height, (float)j + chunkPos.y);
             c.idx = glm::vec3(i, height, j);
@@ -51,6 +49,7 @@ void Chunk::generateCubes()
     isGenerated = true;
 
     calculateFaces();
+    this->sendDataToVBO();
 }
 
 std::optional<Cube*> Chunk::tryGetCube(int x, int y, int z)
@@ -137,6 +136,122 @@ void Chunk::calculateFaces()
     }
 }
 
+void Chunk::prepareGPU()
+{
+
+   const float cubeVertices[] = {
+      -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //back 
+      0.5f, -0.5f, -0.5f,  0.1f, 0.0f,
+      0.5f,  0.5f, -0.5f,  0.1f, 0.1f,
+      0.5f,  0.5f, -0.5f,  0.1f, 0.1f,
+      -0.5f,  0.5f, -0.5f,  0.0f, 0.1f,
+      -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+
+      -0.5f, -0.5f,  0.5f,  0.1f, 0.0f, //front
+      0.5f, -0.5f,  0.5f,  0.2f, 0.0f,
+      0.5f,  0.5f,  0.5f,  0.2f, 0.1f,
+      0.5f,  0.5f,  0.5f,  0.2f, 0.1f,
+      -0.5f,  0.5f,  0.5f,  0.1f, 0.1f,
+      -0.5f, -0.5f,  0.5f,  0.1f, 0.0f,
+
+      -0.5f,  0.5f,  0.5f,  0.3f, 0.0f, //left
+      -0.5f,  0.5f, -0.5f,  0.3f, 0.1f,
+      -0.5f, -0.5f, -0.5f,  0.2f, 0.1f,
+      -0.5f, -0.5f, -0.5f,  0.2f, 0.1f,
+      -0.5f, -0.5f,  0.5f,  0.2f, 0.0f,
+      -0.5f,  0.5f,  0.5f,  0.3f, 0.0f,
+
+      0.5f,  0.5f,  0.5f,  0.4f, 0.0f, //right
+      0.5f,  0.5f, -0.5f,  0.4f, 0.1f,
+      0.5f, -0.5f, -0.5f,  0.3f, 0.1f,
+      0.5f, -0.5f, -0.5f,  0.3f, 0.1f,
+      0.5f, -0.5f,  0.5f,  0.3f, 0.0f,
+      0.5f,  0.5f,  0.5f,  0.4f, 0.0f,
+
+      -0.5f, -0.5f, -0.5f,  0.4f, 0.1f, //bottom
+      0.5f, -0.5f, -0.5f,  0.5f, 0.1f,
+      0.5f, -0.5f,  0.5f,  0.5f, 0.0f,
+      0.5f, -0.5f,  0.5f,  0.5f, 0.0f,
+      -0.5f, -0.5f,  0.5f,  0.4f, 0.0f,
+      -0.5f, -0.5f, -0.5f,  0.4f, 0.1f,
+
+
+      -0.5f,  0.5f, -0.5f,  0.5f, 0.1f, //up
+      0.5f,  0.5f, -0.5f,  0.6f, 0.1f,
+      0.5f,  0.5f,  0.5f,  0.6f, 0.0f,
+      0.5f,  0.5f,  0.5f,  0.6f, 0.0f,
+      -0.5f,  0.5f,  0.5f,  0.5f, 0.0f,
+      -0.5f,  0.5f, -0.5f,  0.5f, 0.1f
+
+   };
+
+   glGenVertexArrays(1, &this->chunkVAO);
+   glGenBuffers(1, &this->chunkVBO);
+   glGenBuffers(1, &this->cubesPosDataVBO);
+
+   glBindVertexArray(this->chunkVAO);
+   glBindBuffer(GL_ARRAY_BUFFER, this->chunkVBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
+
+   //apos
+   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+   glEnableVertexAttribArray(0);
+   // texture coord attribute
+   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+   glEnableVertexAttribArray(1);
+   //
+   glEnableVertexAttribArray(2);
+   glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO); // this attribute comes from a different vertex buffer
+   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+   glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute.
+
+
+
+}
+
+void Chunk::sendDataToVBO()
+{
+   if (this->getCubesData().size() == 0)
+   {
+      return;
+   }
+
+   glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * this->getCubesData().size(), &this->getCubesData()[0], GL_STATIC_DRAW);
+   glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void Chunk::render()
+{
+   glBindVertexArray(this->chunkVAO);
+   glDrawArraysInstanced(GL_TRIANGLES, 0, 36, cubesCount);
+}
+
+std::vector<glm::vec3>& Chunk::getCubesData()
+{
+   if (!isCubeDataValid)
+   {
+      this->cubesGPUData = this->generateCubesGPUData();
+      this->isCubeDataValid = true;
+   }
+   
+
+   return this->cubesGPUData;
+}
+
+std::vector<glm::vec3> Chunk::generateCubesGPUData()
+{
+   std::vector<glm::vec3> cubes;
+   for (size_t i = 0; i < cubesCount; i++)
+   {
+      cubes.emplace_back(cubesData[i].position);
+   }
+
+   return cubes;
+}
+
 Chunk* World::getChunk(int i, int j)
 {
    glm::vec2 idx(i, j);
@@ -161,19 +276,4 @@ Chunk* World::getChunk(int i, int j)
 
 void World::init()
 {
-
-   for (int i = 0; i < 8; i++)
-   {
-      for (int j = 0; j < 8; j++)
-      {
-         auto chunk = new Chunk();
-         int realX = i - 4;
-         int realY = j - 4;
-
-         chunk->chunkPos = glm::vec2(realX * 16, realY * 16);
-         chunk->chunkIdx = glm::vec2(realX, realY);
-         chunk->generateCubes();
-         chunks[i - 4][j - 4] = chunk;
-      }
-   }
 }

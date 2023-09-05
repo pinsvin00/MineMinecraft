@@ -125,33 +125,20 @@ void render()
         auto time = (float)glfwGetTime();
         game->blockShader->use();
 
-        glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 view = glm::mat4(1.0f);
-        glm::mat4 projection = glm::mat4(1.0f);
-
-        view = glm::lookAt(
-            game->player->camera->position,
-            game->player->camera->position + game->player->camera->front,
-            game->player->camera->cameraUp
+        glm::mat4 view = glm::lookAt(
+           game->player->camera->position,
+           game->player->camera->position + game->player->camera->front,
+           game->player->camera->cameraUp
         );
-
-        projection = glm::perspective(glm::radians(90.0f), (float)_w / (float)_h, 0.1f, 200.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(90.0f), (float)_w / (float)_h, 0.1f, 200.0f);
 
         game->blockShader->setMat4("view", view);
         game->blockShader->setMat4("projection", projection);
 
-        for (size_t i = 0; i < game->world->loadedChunks.size(); i++)
+        for (size_t i = 0; i < game->world->loadedChunks->size(); i++)
         {
-            auto chunk = game->world->loadedChunks[i];
-            for (size_t i = 0; i < chunk->cubesCount; i++)
-            {
-                auto cube = chunk->cubesData[i];
-                if (!cube.dontDraw && !cube.isInitialized)
-                {
-                    cube.shader = game->blockShader;
-                    cube.draw();
-                }
-            }
+            auto chunk = game->world->loadedChunks->at(i);
+            chunk->render();
         }
 
 
@@ -163,7 +150,7 @@ void render()
         game->crosshair->draw();
 
         float currentFrame = glfwGetTime();
-        game->deltaTime = currentFrame - lastFrame;
+        //game->deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
         glfwSwapBuffers(window);
@@ -270,10 +257,10 @@ int main()
 
    std::thread game_thread(runGameLoop);
    std::thread input_thread(processInput);
-   std::thread logger_thread(loggerLoop);
+   //std::thread logger_thread(loggerLoop);
    game_thread.detach();
    input_thread.detach();
-   logger_thread.detach();
+   //logger_thread.detach();
 
    render();
 

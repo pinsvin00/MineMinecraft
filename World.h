@@ -7,6 +7,9 @@
 #include <map>
 #include <optional>
 
+#define CHUNK_SQUARE_LEN 8
+#define CHUNK_ARR_SIZ (CHUNK_SQUARE_LEN)*(CHUNK_SQUARE_LEN)*4
+
 //center
 //
 
@@ -31,6 +34,10 @@ public:
 
    Chunk()
    {
+      glGenBuffers(1, &this->cubesPosDataVBO);
+      this->prepareGPU();
+
+
 	   this->cubesData = new Cube[CHUNK_SIZE_X*CHUNK_SIZE_Y*CHUNK_SIZE_Z];
 	   this->chunkPos = glm::vec3(0.0f);
 	   this->chunkIdx = glm::vec3(0.0f);
@@ -42,21 +49,44 @@ public:
    std::vector<Cube*> getNeighboringCubes(Cube& cb);
    void calculateFace(Cube& cb);
    void calculateFaces();
+
+   bool isCubeDataValid = false;
+
+   unsigned int chunkVAO = 0;
+   unsigned int chunkVBO = 0;
+   unsigned int cubesPosDataVBO = 0;
+
+   void prepareGPU();
+   void sendDataToVBO();
+   void render();
+
+   std::vector<glm::vec3>& getCubesData();
+   std::vector<glm::vec3> cubesGPUData;
+   std::vector<glm::vec3> generateCubesGPUData();
+
 };
 
 class World
 {
 public:
    std::map<int, std::map<int, Chunk*>> chunks;
-   std::vector<std::pair<int, int>> loadedChunksIdxs;
-   std::vector<Chunk*> loadedChunks;
+   std::vector<std::pair<int, int>>* loadedChunksIdxs = nullptr;
+   std::vector<Chunk*>* loadedChunks = nullptr;
 
-   int chunksCount = UINT16_MAX;
-   int chunkOffset = UINT16_MAX / 2;
-   int middleChunk = UINT16_MAX / 2;
+   const int chunksCount = UINT16_MAX;
+   const int chunkOffset = UINT16_MAX / 2;
+   const int middleChunk = UINT16_MAX / 2;
 
    Chunk* getChunk(int i, int j);
    void init();
+
+   World()
+   {
+      //this->loadedChunksIdxs = new std::vector<std::pair<int, int>>();
+      //this->loadedChunks = new std::vector<Chunk*>();
+
+      //this->init();
+   }
 
 };
 
