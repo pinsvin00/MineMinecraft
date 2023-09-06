@@ -26,7 +26,6 @@ int _w = 800, _h = 600;
 bool gameShouldClose = false;
 
 float deltaTime = 0.0f;	// Time between current frame and last frame
-float fps = 60.0f;
 float lastFrame = 0.0f; // Time of last frame
 
 unsigned int Cube::VAO = 0;
@@ -47,37 +46,31 @@ void windowSizeChangedCallback(GLFWwindow* window, int w, int h)
    glViewport(0, 0, w, h);
 }
 
-void processInput()
+
+void kbCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
-    while (!gameShouldClose)
+    if (key == GLFW_KEY_W)
     {
+        kbData.setKeyPressed(KeyboardData::KEY_W, action != GLFW_RELEASE);
+    }
+    if (key == GLFW_KEY_S)
+    {
+        kbData.setKeyPressed(KeyboardData::KEY_S, action != GLFW_RELEASE);
+    }
 
-        while (kbData.isLocked)
-        {}
+    if (key == GLFW_KEY_A)
+    {
+        kbData.setKeyPressed(KeyboardData::KEY_A, action != GLFW_RELEASE);
+    }
 
-        if (glfwGetKey(window, GLFW_KEY_W))
-        {
-            kbData.setKeyPressed(KeyboardData::KEY_W);
-        }
-        if (glfwGetKey(window, GLFW_KEY_S))
-        {
-            kbData.setKeyPressed(KeyboardData::KEY_S);
-        }
+    if (key == GLFW_KEY_D)
+    {
+        kbData.setKeyPressed(KeyboardData::KEY_D, action != GLFW_RELEASE);
+    }
 
-        if (glfwGetKey(window, GLFW_KEY_A))
-        {
-            kbData.setKeyPressed(KeyboardData::KEY_A);
-        }
-
-        if (glfwGetKey(window, GLFW_KEY_D))
-        {
-            kbData.setKeyPressed(KeyboardData::KEY_D);
-        }
-
-        if (glfwGetKey(window, GLFW_KEY_SPACE))
-        {
-            kbData.setKeyPressed(KeyboardData::KEY_SPACE);
-        }
+    if (key == GLFW_KEY_SPACE)
+    {
+        kbData.setKeyPressed(KeyboardData::KEY_SPACE, action != GLFW_RELEASE);
     }
 }
 
@@ -104,8 +97,11 @@ void loggerLoop()
 {
     while (true)
     {
-        //delta time is in seconds
-        std::cout << "FPS : " << std::floor(1.0 / game->deltaTime);
+        //The delta time is in seconds so we're using 1.0 instead of 1000
+        std::cout << "FPS : " << std::floor(1.0 / deltaTime) << std::endl;
+        std::cout << "Game updates/sec : " << std::floor(1.0 / game->deltaTime) << std::endl;
+        auto position = game->player->position;
+        std::cout << "Player position : " << " X:" << position.x << " Y:" << position.y << " Z:" << position.z << std::endl;
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         system("cls");
     }
@@ -121,8 +117,6 @@ void render()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glClearColor(0.3f, 0.4f, 0.7f, 1.0f);
-
-        auto time = (float)glfwGetTime();
         game->blockShader->use();
 
         glm::mat4 view = glm::lookAt(
@@ -150,10 +144,10 @@ void render()
         game->crosshair->draw();
 
         float currentFrame = glfwGetTime();
-        //game->deltaTime = currentFrame - lastFrame;
+        deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
 
-        glfwSwapBuffers(window);
+        glFlush();
         glfwPollEvents();
     }
 }
@@ -168,16 +162,19 @@ int main()
    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+   glfwWindowHint(GLFW_DOUBLEBUFFER, GLFW_FALSE);
 
-   _w = 1280;
-   _h = 720;
+   _w = 1920;
+   _h = 1080;
 
    window = glfwCreateWindow(_w, _h, "MineMinecraft", nullptr, nullptr);
    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
-
+   glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
    glfwSetCursorPosCallback(window, &mouse_callback);
    glfwSetMouseButtonCallback(window, &mouse_button_callback);
+   glfwSetKeyCallback(window, &kbCallback);
+
    if (window == nullptr)
    {
       std::cout << "Failed to create GLFW window" << std::endl;
@@ -256,17 +253,13 @@ int main()
    glEnable(GL_DEPTH_TEST);
 
    std::thread game_thread(runGameLoop);
-   std::thread input_thread(processInput);
-   //std::thread logger_thread(loggerLoop);
+   std::thread logger_thread(loggerLoop);
    game_thread.detach();
-   input_thread.detach();
-   //logger_thread.detach();
+   logger_thread.detach();
 
    render();
 
    gameShouldClose = true;
-   //game_thread.join();
-   //input_thread.join();
 
 
    glfwTerminate();

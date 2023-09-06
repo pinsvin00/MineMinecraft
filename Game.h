@@ -3,6 +3,7 @@
 #include "World.h"
 #include "Camera.h"
 #include "Cube.h"
+#include <algorithm>
 #include "Crosshair.h"
 #include <mutex>S
 
@@ -14,10 +15,8 @@ class Controllable {
 
 struct KeyboardData {
 private:
-	std::bitset<16> pressedKeys;
-
-
 public:
+	std::bitset<16> pressedKeys;
 	static constexpr inline uint8_t KEY_W = 0;
 	static constexpr inline uint8_t KEY_S = 1;
 	static constexpr inline uint8_t KEY_A = 2;
@@ -30,9 +29,9 @@ public:
 		pressedKeys = 0;
 	}
 
-	void setKeyPressed(uint8_t key)
+	void setKeyPressed(uint8_t key, bool isPressed)
 	{
-		pressedKeys[key] = true;
+		pressedKeys[key] = isPressed;
 	}
 
 	void reset()
@@ -59,8 +58,9 @@ struct RayCollisionData {
 class Player {
 public:
    std::unique_ptr<Camera> camera = nullptr;
-   std::unique_ptr<Cube>   collider = nullptr;
+   std::shared_ptr<RectangularCollider> collider = nullptr;
    std::shared_ptr<World>  world = nullptr;
+
 
    glm::vec3 position = glm::vec3(1.0f);
 
@@ -87,6 +87,12 @@ public:
    std::unique_ptr<Player> player;
    std::unique_ptr<Crosshair> crosshair;
 
+   const float gravityAcceleration = 3.0f;
+
+   const float playerInitialJumpSpeed = 5.0f;
+   const float playerVelocity = 10.0f;
+
+
    float deltaTime;
    float lastTime;
 
@@ -95,7 +101,7 @@ public:
    std::vector<Cube*> cubes;
    KeyboardData& kbData;
 
-
+   Cube specialCube;
 
    void processGame();
 
@@ -106,6 +112,10 @@ public:
    void processKb(GLFWwindow* window);
    void onMouseMove(GLFWwindow* window, double xpos, double ypos);
    void onMouseClick(GLFWwindow* window, int button, int action, int mods);
+   /// <summary>
+   /// This function resolve collisions in given axes, after running it there shouldn't be any collisions
+   /// </summary>
+   void resolveCollisions(bool yIter);
 
    Game(KeyboardData& kbData);
 };

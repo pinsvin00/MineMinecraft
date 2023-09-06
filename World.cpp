@@ -2,7 +2,7 @@
 
 void Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
 {
-
+    this->isCubeDataValid = false;
     this->cubesData[cubesCount] = std::move(cube);
     this->cubesMap[x][y][z] = &cubesData[cubesCount];
     this->cubesCount += 1;
@@ -20,7 +20,7 @@ void Chunk::generateCubes()
         for (size_t j = 0; j < 16; j++)
         {
             const double frequency = 1.0f;
-            const int32_t octaves = 50;
+            const int32_t octaves = 1;
             const double fx = (frequency / 16.0);
             const double fy = (frequency / 16.0);
 
@@ -118,7 +118,11 @@ void Chunk::calculateFace(Cube& cb)
    for (auto& element : dirs)
    {
       glm::vec3 pos = idx + element;
-      auto cube = tryGetCube(pos.x, pos.y, pos.z);
+      auto cube = tryGetCube(
+          (int)pos.x,
+          (int)pos.y,
+          (int)pos.z
+      );
 
       if (cube.has_value() == false || cube.value()->dontDraw == true)
       {
@@ -264,7 +268,7 @@ Chunk* World::getChunk(int i, int j)
       c->chunkPos *= 16;
 
       c->generateCubes();
-      chunks[idx.x][idx.y] = c;
+      chunks[(int)idx.x][(int)idx.y] = c;
       return c;
    }
    else

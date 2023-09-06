@@ -26,8 +26,39 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
       }
    }
 
-
+   currentChunk->sendDataToVBO();
+   playerPosition += glm::vec3(0, 1, 0);
    this->player = std::make_unique<Player>(world, playerPosition);
+}
+
+void Game::resolveCollisions(bool yIter)
+{
+    RectangularCollider* collider = this->player->collider.get();
+    collider->scale = glm::vec3(1.0f, 2.0f, 1.0f);
+    collider->origin = glm::vec3(0.0f, -1.0f, 0.0f);
+    collider->position = player->position;
+
+    collider->calculateModel();
+    auto verts = collider->getVertices();
+
+    for (size_t i = 0; i < currentChunk->cubesCount; i++)
+    {
+        Cube& cube = currentChunk->cubesData[i];
+        if (cube.checkCollision(collider))
+        {
+            player->position -= player->velocity * deltaTime;
+
+            if (yIter)
+            {
+                player->position.y += 0.001f;
+                player->isGrounded = true;
+                player->velocity.y = 0.0f;
+            }
+
+            break;
+        }
+
+    }
 }
 
 void Game::loadChunksAt(int x, int y)
@@ -79,28 +110,40 @@ inline bool Game::pointInChunk(glm::vec2 ppos, Chunk& c)
 
 void Game::processGame()
 {
-   this->processKb(nullptr);
 
    float currentTime = glfwGetTime();
    this->deltaTime = currentTime - lastTime;
    this->lastTime = currentTime;
 
+   this->deltaTime = clamp((double)deltaTime, 0.0, 0.5);
+
    player->deltaTime = deltaTime;
-   if (player->velocity.y != 0.0f)
+
+   //try to move by kb
+   this->player->velocity.x = 0.0f;
+   float preservedY = player->velocity.y;
+   this->player->velocity.y = 0.0f;
+
+
+   this->processKb(nullptr);
+
+   //resolve collisions in xz axes
+   player->position += player->velocity * deltaTime;
+   this->resolveCollisions(false);
+
+   //resolve collisions in y axis
+   player->velocity = glm::vec3(0.0f);
+   player->velocity.y = preservedY;
+   player->velocity.y -= gravityAcceleration * deltaTime;
+   player->position += player->velocity * deltaTime;
+
+   this->resolveCollisions(true);
+
+   if (this->kbData.isKeyPressed(KeyboardData::KEY_SPACE))
    {
-      player->position.y += player->velocity.y * deltaTime;
-      player->camera->position.y += player->velocity.y * deltaTime;
-      player->velocity.y -= 1.0f * deltaTime;
+       player->velocity.y = playerInitialJumpSpeed;
+       player->isGrounded = false;
    }
-
-   if (player->position.y < 0.0f)
-   {
-      player->isGrounded = true;
-      player->velocity.y = 0.0f;
-      player->velocity.y = 0.0f;
-   }
-
-
 
 
    glm::vec2 ppos = glm::vec2(player->position.x, player->position.z);
@@ -108,6 +151,10 @@ void Game::processGame()
    {
       this->findNewCurrentChunk();
    }
+
+   //update player dependent positions
+   player->collider->position = player->position;
+   player->camera->position = player->position;
 
 }
 
@@ -175,28 +222,21 @@ void Game::findNewCurrentChunk()
 void Game::processKb(GLFWwindow* window)
 {
     auto cameraDir = player->camera->front;
-    cameraDir.y = 0;
+    const float playerSpeed = 5.0f;
 
-    const float playerSpeed = 10.0f;
-
-
+    cameraDir.y = 0.0f;
     cameraDir = glm::normalize(cameraDir);
 
     if (this->kbData.isKeyPressed(KeyboardData::KEY_W))
     {
-        glm::vec3 mov = player->camera->front * playerSpeed * deltaTime;
-        //mov.y = 0.0f;
-        player->position += mov;
-        player->camera->position += mov;
-        player->collider->position += mov;
+        glm::vec3 mov = cameraDir * playerSpeed;
+        //std::cout << "Dt = " << deltaTime << std::endl;
+        player->velocity = mov;
     }
     if (this->kbData.isKeyPressed(KeyboardData::KEY_S))
     {
-        glm::vec3 mov = player->camera->front * playerSpeed * deltaTime;
-        //mov.y = 0.0f;
-        player->position -= mov;
-        player->camera->position -= mov;
-        player->collider->position -= mov;
+        glm::vec3 mov = cameraDir * playerSpeed;
+        player->velocity = -mov;
     }
 
     if (this->kbData.isKeyPressed(KeyboardData::KEY_A))
@@ -214,14 +254,6 @@ void Game::processKb(GLFWwindow* window)
         player->collider->position += glm::cross(cameraDir, player->camera->cameraUp) * playerSpeed * deltaTime;;
     }
 
-    if (this->kbData.isKeyPressed(KeyboardData::KEY_SPACE))
-    {
-        player->velocity.y = 2.0f;
-        player->isGrounded = false;
-    }
-
-    this->kbData.reset();
-
 }
 
 void Game::onMouseMove(GLFWwindow* window, double xpos, double ypos)
@@ -236,7 +268,7 @@ void Game::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 
 
 void Player::draw() {
-   collider->draw();
+
 }
 
 void Player::onMouseMove(GLFWwindow* window, double xpos, double ypos)
@@ -289,7 +321,7 @@ RayCollisionData Player::getCubeAtGunPoint()
 
 Player::Player(std::shared_ptr<World> world, glm::vec3 position) : world(world)
 {
-   collider = std::make_unique<Cube>();
+   collider = std::make_shared<RectangularCollider>();
    camera = std::make_unique<Camera>();
    
    this->setPosition(position);
