@@ -9,7 +9,7 @@
 #include <algorithm>
 #include <optional>
 
-#define CHUNK_SQUARE_LEN 4
+#define CHUNK_SQUARE_LEN 8
 #define CHUNK_ARR_SIZ (CHUNK_SQUARE_LEN)*(CHUNK_SQUARE_LEN)*4
 
 //center
@@ -18,6 +18,37 @@
 struct CubeGPUStruct {
 	glm::vec3 position;
 	float blockType;
+};
+
+struct VBOPool {
+
+   std::vector<unsigned int> vbos;
+   size_t siz = 0;
+   size_t top = 0;
+   VBOPool() = default;
+   void clear()
+   {
+      this->top = 0;
+   }
+   unsigned int get()
+   {
+       unsigned int vbo = vbos[top];
+       top++;
+
+       return vbo;
+   }
+   void init(size_t total)
+   {
+      this->siz = total;
+      vbos.reserve(total);
+      for (size_t i = 0; i < siz; i++)
+      {
+         unsigned int vbo = 0;
+         glGenBuffers(1, &vbo);
+         vbos.push_back(vbo);
+      }
+   }
+
 };
 
 
@@ -43,7 +74,7 @@ public:
 	Chunk()
 	{
 		glGenBuffers(1, &this->cubesPosDataVBO);
-		this->prepareGPU();
+		//this->prepareGPU();
 		this->cubesData = new Cube[CHUNK_SIZE_X*CHUNK_SIZE_Y*CHUNK_SIZE_Z];
 		this->chunkPos = glm::vec3(0.0f);
 		this->chunkIdx = glm::vec3(0.0f);
@@ -59,11 +90,13 @@ public:
 
    bool isCubeDataValid = false;
 
-   unsigned int chunkVAO = 0;
-   unsigned int chunkVBO = 0;
+   static inline unsigned int chunkVAO = 0;
+   static inline unsigned int cubeVBO = 0;
+   static inline VBOPool vboPool;
+   //this vbo is assigned from the pool of vbos
    unsigned int cubesPosDataVBO = 0;
 
-   void prepareGPU();
+   static void prepareGPU();
    void sendDataToVBO();
    void render();
 

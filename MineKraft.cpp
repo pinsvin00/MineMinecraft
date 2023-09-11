@@ -17,6 +17,7 @@
 #include <vector>
 #include <glm/gtx/euler_angles.hpp>
 #include "Cube.h"
+#include <conio.h>
 #include "Crosshair.h"
 #include "m_math.h"
 
@@ -263,6 +264,5 @@ int main()
 
 
    glfwTerminate();
-
    return 0;
 }

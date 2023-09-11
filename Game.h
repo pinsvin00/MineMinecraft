@@ -5,7 +5,7 @@
 #include "Cube.h"
 #include <algorithm>
 #include "Crosshair.h"
-#include <mutex>S
+#include <mutex>
 
 class Controllable {
    void onKbInput(GLFWwindow* window) {};

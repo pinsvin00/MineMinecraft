@@ -171,12 +171,11 @@ void Chunk::prepareGPU()
 
    };
 
-   glGenVertexArrays(1, &this->chunkVAO);
-   glGenBuffers(1, &this->chunkVBO);
-   glGenBuffers(1, &this->cubesPosDataVBO);
+   glGenVertexArrays(1, &chunkVAO);
+   glGenBuffers(1, &cubeVBO);
 
-   glBindVertexArray(this->chunkVAO);
-   glBindBuffer(GL_ARRAY_BUFFER, this->chunkVBO);
+   glBindVertexArray(chunkVAO);
+   glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
    glBufferData(GL_ARRAY_BUFFER, sizeof(cubeVertices), cubeVertices, GL_STATIC_DRAW);
 
    //apos
@@ -186,14 +185,14 @@ void Chunk::prepareGPU()
    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
    glEnableVertexAttribArray(1);
    //
-   glEnableVertexAttribArray(2);
-   glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO); // this attribute comes from a different vertex buffer
-   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-   glEnableVertexAttribArray(3);
-   glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
-   glBindBuffer(GL_ARRAY_BUFFER, 0);
-   glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute.
-   glVertexAttribDivisor(3, 1);
+   //glEnableVertexAttribArray(2);
+   ////glBindBuffer(GL_ARRAY_BUFFER, cubesPosDataVBO); // this attribute comes from a different vertex buffer
+   //glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+   //glEnableVertexAttribArray(3);
+   //glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
+   //glVertexAttribDivisor(2, 1);
+   //glVertexAttribDivisor(3, 1);
 
 
 
@@ -201,7 +200,7 @@ void Chunk::prepareGPU()
 
 void Chunk::sendDataToVBO()
 {
-   if (this->getCubesData().size() == 0)
+   if (this->getCubesData().size() == 0 || this->cubesPosDataVBO == 0)
    {
       return;
    }
@@ -213,8 +212,25 @@ void Chunk::sendDataToVBO()
 
 void Chunk::render()
 {
-   this->sendDataToVBO();
+   if (cubesPosDataVBO == 0)
+   {
+      return;
+   }
+
+   glEnableVertexAttribArray(2);
+   glBindBuffer(GL_ARRAY_BUFFER, cubesPosDataVBO); // this attribute comes from a different vertex buffer
+   glBufferData(GL_ARRAY_BUFFER, sizeof(CubeGPUStruct) * this->getCubesData().size(), &this->getCubesData()[0], GL_STATIC_DRAW);
+   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+   glEnableVertexAttribArray(3);
+   glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
+
+   glVertexAttribDivisor(2, 1);
+   glVertexAttribDivisor(3, 1);
+
+;
+
    glBindVertexArray(this->chunkVAO);
+   glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO);
    glDrawArraysInstanced(GL_TRIANGLES, 0, 36, this->getCubesData().size());
 }
 
@@ -390,7 +406,6 @@ void World::generateChunk(Chunk* chunk)
 
         }
     }
-    chunk->sendDataToVBO();
 }
 
 Chunk* World::getChunk(int i, int j, bool generate)

@@ -5,6 +5,7 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    srand((uint32_t)time(NULL));
    Crosshair::init();
    Cube::init();
+   Chunk::prepareGPU();
 
    deltaTime = 0.0f;
    blockShader = new Shader("shader.hlsl", "shader_frag.hlsl"); // you can name your shader files however you like
@@ -12,21 +13,23 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    crosshair = std::make_unique<Crosshair>();
 
    world = std::make_shared<World>();
-   this->loadChunksAt(2, 2);
+   Chunk::vboPool.init(CHUNK_ARR_SIZ*4);
 
-   auto firstChunk = world->getChunk(2, 2);
+   this->loadChunksAt(0, 0);
+
+
+   auto firstChunk = world->getChunk(0, 0);
    glm::vec3 playerPosition = glm::vec3(16.0f);
-   //for (size_t i = 0; i < firstChunk->cubesCount; i++)
-   //{
-   //   auto& cube = firstChunk->cubesData[i];
-   //   if (cube.position.y > 20.0f)
-   //   {
-   //      playerPosition = cube.position + glm::vec3(0.0f, 2.0f, 0.0f);
-   //      break;
-   //   }
-   //}
+   for (size_t i = 0; i < firstChunk->cubesCount; i++)
+   {
+      auto& cube = firstChunk->cubesData[i];
+      if (cube.position.y > 20.0f)
+      {
+         playerPosition = cube.position + glm::vec3(0.0f, 2.0f, 0.0f);
+         break;
+      }
+   }
 
-   currentChunk->sendDataToVBO();
    playerPosition += glm::vec3(0, 1, 0);
 
    this->player = std::make_unique<Player>(world, playerPosition);
@@ -74,7 +77,7 @@ void Game::loadChunksAt(int x, int y)
 
    auto loadedChunksIdxs = new std::vector<std::pair<int,int>>();
    auto loadedChunks = new std::vector<Chunk*>();
-
+   Chunk::vboPool.clear();
    for (int xo = -CHUNK_SQUARE_LEN; xo <= CHUNK_SQUARE_LEN; xo++)
    {
       for (int yo = -CHUNK_SQUARE_LEN; yo <= CHUNK_SQUARE_LEN; yo++)
@@ -87,6 +90,7 @@ void Game::loadChunksAt(int x, int y)
          {
              this->world->generateChunk(chunk);
          }
+         chunk->cubesPosDataVBO = Chunk::vboPool.get();
          loadedChunks->push_back(chunk);
       }
    }
@@ -195,7 +199,7 @@ void Game::findNewCurrentChunk()
 
    newWorldIdx->reserve(CHUNK_ARR_SIZ);
    newWorldChunks->reserve(CHUNK_ARR_SIZ);
-
+   Chunk::vboPool.clear();
    if (currentChunk != nullptr)
    {
       for (int xo = -CHUNK_SQUARE_LEN; xo <= CHUNK_SQUARE_LEN; xo++)
@@ -206,10 +210,7 @@ void Game::findNewCurrentChunk()
                std::make_pair(currentChunk->chunkIdx.x + xo, currentChunk->chunkIdx.y + yo)
             );
             Chunk* chunk = world->getChunk(currentChunk->chunkIdx.x + xo, currentChunk->chunkIdx.y + yo);
-            if (!chunk->isGenerated)
-            {
-               world->generateChunk(chunk);
-            }
+            chunk->cubesPosDataVBO = Chunk::vboPool.get();
             newWorldChunks->push_back(chunk);
          }
       }
