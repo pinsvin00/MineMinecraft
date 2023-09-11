@@ -8,51 +8,6 @@ void Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
     this->cubesCount += 1;
 }
 
-void Chunk::generateCubes()
-{
-    if (isGenerated) return;
-
-
-    const siv::PerlinNoise perlin{ 123 };
-
-    for (size_t i = 0; i < 16; i++)
-    {
-        for (size_t j = 0; j < 16; j++)
-        {
-            const double frequency = 1.0f;
-            const int32_t octaves = 1;
-            const double fx = (frequency / 16.0);
-            const double fy = (frequency / 16.0);
-
-
-            auto height = perlin.octave2D_01((i + chunkPos.x) * fx, (j + chunkPos.y) * fy, octaves);
-            height *= 30.0;
-            height = floor(height);
-            height = (double) clamp(height ,0.0, 20.0);
-
-            Cube c;
-            c.position = glm::vec3(i + chunkPos.x, height, j + chunkPos.y);
-            c.idx = glm::vec3(i, height, j);
-            c.processMat();
-
-            this->addCube(c, i, (int)height, j);
-            for (size_t h = 0; h < height; h++)
-            {
-                Cube c;
-                c.position = glm::vec3(i + chunkPos.x, h, j + chunkPos.y);
-                c.idx = glm::vec3(i, h, j);
-                c.processMat();
-                addCube(c, i, h, j);
-            }
-
-        }
-    }
-    isGenerated = true;
-
-    calculateFaces();
-    this->sendDataToVBO();
-}
-
 std::optional<Cube*> Chunk::tryGetCube(int x, int y, int z)
 {
    if (x < 0 || x >= CHUNK_SIZE_X)
@@ -89,7 +44,7 @@ std::vector<Cube*> Chunk::getNeighboringCubes(Cube& cb)
 
    for (auto& direction : dirs)
    {
-      glm::vec3 neighborPositon = cb.idx + direction;
+      glm::vec3 neighborPositon = cb.chunkPosition + direction;
       auto neighborCube = tryGetCube(neighborPositon.x, neighborPositon.y, neighborPositon.z);
       if (neighborCube.has_value())
       {
@@ -103,7 +58,7 @@ std::vector<Cube*> Chunk::getNeighboringCubes(Cube& cb)
 
 void Chunk::calculateFace(Cube& cb)
 {
-   auto idx = cb.idx;
+   auto idx = cb.chunkPosition;
    std::vector<glm::vec3> dirs = {
       glm::vec3(0,0,-1),
       glm::vec3(0,0 ,1),
@@ -125,7 +80,7 @@ void Chunk::calculateFace(Cube& cb)
           (int)pos.z
       );
 
-      if (cube.has_value() == false || cube.value()->dontDraw == true)
+      if (cube.has_value() == false || cube.value()->destroyed == true)
       {
          cb.facesToRender |= 1 << iter;
       }
@@ -155,7 +110,7 @@ std::vector<Cube*> Chunk::getChunkBatch(glm::vec3 position, int batchSize)
          for (int z = -batchSize; z <= batchSize ; z++)
          {
             auto cube = this->tryGetCube(position.x + x, position.y + y, position.z + z);
-            if (cube.has_value())
+            if (cube.has_value() && !cube.value()->destroyed)
             {
                batch.push_back(cube.value());
             }
@@ -233,9 +188,12 @@ void Chunk::prepareGPU()
    //
    glEnableVertexAttribArray(2);
    glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO); // this attribute comes from a different vertex buffer
-   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+   glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+   glEnableVertexAttribArray(3);
+   glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(3 * sizeof(float)));
    glBindBuffer(GL_ARRAY_BUFFER, 0);
    glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute.
+   glVertexAttribDivisor(3, 1);
 
 
 
@@ -249,17 +207,18 @@ void Chunk::sendDataToVBO()
    }
 
    glBindBuffer(GL_ARRAY_BUFFER, this->cubesPosDataVBO);
-   glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec3) * this->getCubesData().size(), &this->getCubesData()[0], GL_STATIC_DRAW);
+   glBufferData(GL_ARRAY_BUFFER, sizeof(CubeGPUStruct) * this->getCubesData().size(), &this->getCubesData()[0], GL_STATIC_DRAW);
    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void Chunk::render()
 {
+   this->sendDataToVBO();
    glBindVertexArray(this->chunkVAO);
-   glDrawArraysInstanced(GL_TRIANGLES, 0, 36, cubesCount);
+   glDrawArraysInstanced(GL_TRIANGLES, 0, 36, this->getCubesData().size());
 }
 
-std::vector<glm::vec3>& Chunk::getCubesData()
+std::vector<CubeGPUStruct>& Chunk::getCubesData()
 {
    if (!isCubeDataValid)
    {
@@ -271,35 +230,196 @@ std::vector<glm::vec3>& Chunk::getCubesData()
    return this->cubesGPUData;
 }
 
-std::vector<glm::vec3> Chunk::generateCubesGPUData()
+std::vector<CubeGPUStruct> Chunk::generateCubesGPUData()
 {
-   std::vector<glm::vec3> cubes;
+   std::vector<CubeGPUStruct> cubes;
    for (size_t i = 0; i < cubesCount; i++)
    {
-      cubes.emplace_back(cubesData[i].position);
+      if (cubesData[i].destroyed)
+      {
+          continue;
+      }
+
+      CubeGPUStruct cubeData;
+      cubeData.blockType = cubesData[i].blockKind;
+      cubeData.position = cubesData[i].position;
+      cubes.emplace_back(cubeData);
    }
 
    return cubes;
 }
 
-Chunk* World::getChunk(int i, int j)
+void World::generateTree(int x, int y, int z, Chunk * ch)
 {
-   glm::vec2 idx(i, j);
-   if (chunks[idx.x].count(idx.y) == 0)
+    size_t treeHeight = 7;
+    int leavesSq = 3;
+
+    bool generateLeaves = false;
+    bool generateWood = true;
+
+    size_t leavesHeight = 0;
+    std::set<Chunk*> uniqueChunks;
+    Cube c;
+
+    for (size_t i = 1; i <= treeHeight; i++)
+    {
+        //addcube
+        if (treeHeight - i <= 3)
+        {
+            generateLeaves = true;
+        }
+
+        if (generateWood)
+        {
+
+            c.blockKind = WOOD;
+            c.chunkPosition = glm::vec3(x, y + i, z);
+            c.position = glm::vec3(x, y + i, z);
+
+            if (x < 0 && z < 0)
+            {
+                int a = 0;
+            }
+
+            Chunk* ch = this->chunkAt(x, z, false);
+            ch->addCube(c, abs(x - ch->chunkPos.x), y + i, abs(z - ch->chunkPos.y));
+;
+        }
+
+        if (generateLeaves)
+        {
+            for (int xo = -leavesSq; xo <= leavesSq; xo++)
+            {
+                for (int zo = -leavesSq; zo <= leavesSq; zo++)
+                {
+                    if (xo == 0 && zo == 0) continue;
+                    Chunk* pch = this->chunkAt(x+xo, z+zo, false);
+
+                    if (ch != pch)
+                    {
+                        int k = 1;
+                        pch->isCubeDataValid = false;
+                    }
+                    pch = this->chunkAt(x + xo, z + zo, false);
+
+                    c.blockKind = LEAVES;
+                    c.chunkPosition = glm::vec3(x, y + i, z);
+                    c.position = glm::vec3(x + xo, y + i, z + zo);
+
+                    pch->addCube(c, abs(x + xo - pch->chunkPos.x), y + i, abs(z + zo - pch->chunkPos.y));
+                }
+            }
+            leavesSq -= 1;
+            generateWood = false;
+        }
+    }
+}
+
+Chunk* World::chunkAt(int x, int y, bool generate)
+{
+    x = x < 0 ? x - 15  : x;
+    y = y < 0 ? y - 15 : y;
+
+    return this->getChunk(x/16,y/16, generate);
+}
+
+Cube* World::cubeAt(int x, int y, int z)
+{
+    auto chunk = this->chunkAt(x, y);
+
+    int mx = x % 16;
+    int my = y % 16;
+    int mz = z % 16;
+
+    return chunk->cubesMap[mx][my][mz];
+   
+}
+
+void World::generateChunk(Chunk* chunk)
+{
+    if (chunk->isGenerated) return;
+
+
+    const siv::PerlinNoise perlin{ 123 };
+    chunk->isGenerated = true;
+
+    for (size_t i = 0; i < 16; i++)
+    {
+        for (size_t j = 0; j < 16; j++)
+        {
+            const double frequency = 1.0f;
+            const int32_t octaves = 1;
+            const double fx = (frequency / 32.0);
+            const double fy = (frequency / 32.0);
+
+
+            auto height = perlin.octave2D_01((i + chunk->chunkPos.x) * fx, (j + chunk->chunkPos.y) * fy, octaves);
+            height *= 30.0;
+            height = floor(height);
+            //height = (double) clamp(height ,0.0, 20.0);
+
+            Cube c;
+            c.blockKind = GRASS;
+            c.position = glm::vec3(i + chunk->chunkPos.x, height, j + chunk->chunkPos.y);
+            c.chunkPosition = glm::vec3(i, height, j);
+            c.processMat();
+
+            if (height >= 10 && rand() % 100 == 0)
+            {
+                this->generateTree(i + chunk->chunkPos.x, height, j + chunk->chunkPos.y, chunk);
+            }
+
+            chunk->addCube(c, i, (int)height, j);
+            for (size_t h = 0; h < height; h++)
+            {
+                Cube c;
+                c.position = glm::vec3(i + chunk->chunkPos.x, h, j + chunk->chunkPos.y);
+                if (height - 3 <= h)
+                {
+                    c.blockKind = DIRT;
+                }
+                else
+                {
+                    c.blockKind = STONE;
+                }
+
+                c.chunkPosition = glm::vec3(i, h, j);
+                c.processMat();
+                chunk->addCube(c, i, h, j);
+            }
+
+        }
+    }
+    chunk->sendDataToVBO();
+}
+
+Chunk* World::getChunk(int i, int j, bool generate)
+{
+   if (chunks[i].count(j) == 0)
    {
       Chunk* c = new Chunk();
-      c->chunkIdx = idx;
+      c->chunkIdx = glm::vec2(i,j);
 
-      c->chunkPos = idx;
+      c->chunkPos = c->chunkIdx;
       c->chunkPos *= 16;
 
-      c->generateCubes();
-      chunks[(int)idx.x][(int)idx.y] = c;
+      chunks[i][j] = c;
+
+      if (generate)
+      {
+          this->generateChunk(c);
+      }
+
+
       return c;
    }
    else
    {
-      return chunks[idx.x][idx.y];
+       if (chunks[i][j]->isGenerated == false && generate)
+       {
+           this->generateChunk(chunks[i][j]);
+       }
+       return chunks[i][j];
    }
 
 }

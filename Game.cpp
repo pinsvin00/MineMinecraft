@@ -12,22 +12,23 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    crosshair = std::make_unique<Crosshair>();
 
    world = std::make_shared<World>();
-   this->loadChunksAt(0, 0);
+   this->loadChunksAt(2, 2);
 
-   auto firstChunk = world->getChunk(0, 0);
-   glm::vec3 playerPosition = glm::vec3(1.0f);
-   for (size_t i = 0; i < firstChunk->cubesCount; i++)
-   {
-      auto& cube = firstChunk->cubesData[i];
-      if (cube.position.y > 20.0f)
-      {
-         playerPosition = cube.position + glm::vec3(0.0f, 2.0f, 0.0f);
-         break;
-      }
-   }
+   auto firstChunk = world->getChunk(2, 2);
+   glm::vec3 playerPosition = glm::vec3(16.0f);
+   //for (size_t i = 0; i < firstChunk->cubesCount; i++)
+   //{
+   //   auto& cube = firstChunk->cubesData[i];
+   //   if (cube.position.y > 20.0f)
+   //   {
+   //      playerPosition = cube.position + glm::vec3(0.0f, 2.0f, 0.0f);
+   //      break;
+   //   }
+   //}
 
    currentChunk->sendDataToVBO();
    playerPosition += glm::vec3(0, 1, 0);
+
    this->player = std::make_unique<Player>(world, playerPosition);
 }
 
@@ -64,25 +65,6 @@ void Game::resolveCollisions(bool yIter)
              break;
          }
     }
-
-    //for (size_t i = 0; i < currentChunk->cubesCount; i++)
-    //{
-    //    Cube& cube = currentChunk->cubesData[i];
-    //    if (cube.checkCollision(collider))
-    //    {
-    //        player->position -= player->velocity * deltaTime;
-
-    //        if (yIter)
-    //        {
-    //            player->position.y += 0.001f;
-    //            player->isGrounded = true;
-    //            player->velocity.y = 0.0f;
-    //        }
-
-    //        break;
-    //    }
-
-    //}
 }
 
 void Game::loadChunksAt(int x, int y)
@@ -103,7 +85,7 @@ void Game::loadChunksAt(int x, int y)
          Chunk* chunk = world->getChunk(x + xo, y + yo);
          if (!chunk->isGenerated)
          {
-            chunk->generateCubes();
+             this->world->generateChunk(chunk);
          }
          loadedChunks->push_back(chunk);
       }
@@ -226,7 +208,7 @@ void Game::findNewCurrentChunk()
             Chunk* chunk = world->getChunk(currentChunk->chunkIdx.x + xo, currentChunk->chunkIdx.y + yo);
             if (!chunk->isGenerated)
             {
-               chunk->generateCubes();
+               world->generateChunk(chunk);
             }
             newWorldChunks->push_back(chunk);
          }
@@ -304,7 +286,7 @@ RayCollisionData Player::getCubeAtGunPoint()
 {
    Ray ray(this->position, camera->front);
 
-   Cube closestCube;
+   Cube* closestCube = nullptr;
    Chunk* cubesChunk = nullptr;
    float collisionDistanceCube = -1.0f;
 
@@ -314,22 +296,22 @@ RayCollisionData Player::getCubeAtGunPoint()
        {
          auto& cube = chunk->cubesData[i];
          auto collisionDis = cube.getCollider().intersect(ray);
-         if (!cube.dontDraw && !cube.isInitialized && collisionDis != -1.0f)
+         if (!cube.destroyed && !cube.isInitialized && collisionDis != -1.0f)
          {
-            if (closestCube.isInitialized)
+            if (closestCube != nullptr)
             {
-               float dn = glm::distance(closestCube.position, position);
+               float dn = glm::distance(closestCube->position, position);
                float dc = glm::distance(cube.position, position);
                if (dn > dc)
                {
-                  closestCube = cube;
+                  closestCube = &cube;
                   cubesChunk = chunk;
                   collisionDistanceCube = collisionDis;
                }
             }
             else
             {
-               closestCube = cube;
+               closestCube = &cube;
                cubesChunk = chunk;
                collisionDistanceCube = collisionDis;
             }
@@ -339,7 +321,7 @@ RayCollisionData Player::getCubeAtGunPoint()
    }
 
 
-   RayCollisionData data(closestCube, cubesChunk, collisionDistanceCube);
+   RayCollisionData data(*closestCube, cubesChunk, collisionDistanceCube);
    return data;
 }
 
@@ -365,24 +347,26 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       auto collisionData = this->getCubeAtGunPoint();
 
 
-      if (!collisionData.cube.isInitialized || collisionData.chunk == nullptr)
+      if (collisionData.chunk == nullptr)
       {
          return;
       }
 
       float distance = glm::distance(collisionData.cube.position, this->position);
-      if (distance >= 8.0f)
+      if (distance >= 16.0f)
       {
          return;
       }
 
-      collisionData.cube.dontDraw = true;
+      collisionData.cube.destroyed = true;
 
       auto neighbors = collisionData.chunk->getNeighboringCubes(collisionData.cube);
-      for (auto neighbor : neighbors)
-      {
-          collisionData.chunk->calculateFace(*neighbor);
-      }
+      //for (auto neighbor : neighbors)
+      //{
+      //    collisionData.chunk->calculateFace(*neighbor);
+      //}
+      collisionData.chunk->isCubeDataValid = false;
+      collisionData.chunk->sendDataToVBO();
    }
    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
    {
@@ -445,8 +429,8 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       //render all faces of the cube
       newCube.facesToRender = 0b111111;
       newCube.position = cube.position + directions[faceIdx];
-      newCube.idx = cube.idx + directions[faceIdx];
-      collisionData.chunk->addCube(newCube, newCube.idx.x, newCube.idx.y, newCube.idx.z);
+      newCube.chunkPosition = cube.chunkPosition + directions[faceIdx];
+      collisionData.chunk->addCube(newCube, newCube.chunkPosition.x, newCube.chunkPosition.y, newCube.chunkPosition.z);
       //calculate faces that are needed for rendering
       collisionData.chunk->calculateFace(newCube);
 

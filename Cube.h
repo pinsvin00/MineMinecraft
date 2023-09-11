@@ -8,9 +8,15 @@
 #include <iterator>
 
 
-enum Block {
-   DIRT, STONE, AIR
-};
+//enum Block {
+//   GRASS = 0.0f, DIRT = 0.1, STONE, AIR
+//};
+
+const float GRASS = 0.0f;
+const float DIRT = 0.1f;
+const float STONE = 0.2f;
+const float WOOD = 0.3f;
+const float LEAVES = 0.4f;
 
 
 class Cube {
@@ -21,12 +27,12 @@ public:
    //instance data of cube
    glm::mat4 model = glm::mat4(1.0f);
    glm::vec3 position = glm::vec3(0.0f);
-   glm::vec3 idx = glm::vec3(0.0f);
+   glm::vec3 chunkPosition = glm::vec3(0.0f);
    glm::vec3 scale = glm::vec3(1.0f);
 
    Shader* shader = nullptr;
-   bool dontDraw = false;
-   Block blockKind = Block::AIR;
+   bool destroyed = false;
+   float blockKind = GRASS;
    uint8_t facesToRender = 0;
 
    bool isInitialized = false;
@@ -74,7 +80,7 @@ public:
 
 
    void setPosition(glm::vec3 position);
-   Cube(glm::vec3 position, Block block);
+   Cube(glm::vec3 position, float block);
    Cube() = default;
 
    template<typename T>
@@ -93,7 +99,6 @@ public:
    static unsigned int EBO;
 
 };
-
 
 
 class RectangularCollider

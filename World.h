@@ -5,14 +5,21 @@
 #include "PerlinNoise.h"
 #include <vector>
 #include <map>
+#include <set>
 #include <algorithm>
 #include <optional>
 
-#define CHUNK_SQUARE_LEN 8
+#define CHUNK_SQUARE_LEN 4
 #define CHUNK_ARR_SIZ (CHUNK_SQUARE_LEN)*(CHUNK_SQUARE_LEN)*4
 
 //center
 //
+
+struct CubeGPUStruct {
+	glm::vec3 position;
+	float blockType;
+};
+
 
 class Chunk {
 public:
@@ -21,31 +28,28 @@ public:
 	static constexpr inline uint8_t CHUNK_SIZE_Z = 16;
 	static constexpr inline uint16_t CHUNK_ARR_SIZE = CHUNK_SIZE_X * CHUNK_SIZE_Y * CHUNK_SIZE_Z;
 
-   bool isDummy = false;
-   bool isGenerated = false;
-   glm::vec2 chunkPos;
-   glm::vec2 chunkIdx;
+	bool isDummy = false;
+	bool isGenerated = false;
+	glm::vec2 chunkPos;
+	glm::vec2 chunkIdx;
 
-   //memory arena for the cubes, serves also as new cube map
-   Cube* cubesData = nullptr;
-   //Map for calculations, allowed for some cold reads
-   Cube* cubesMap[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z] = {nullptr};
+	//memory arena for the cubes, serves also as new cube map
+	Cube* cubesData = nullptr;
+	//Map for calculations, allowed for some cold reads
+	Cube* cubesMap[CHUNK_SIZE_X][CHUNK_SIZE_Y][CHUNK_SIZE_Z] = {nullptr};
 
-   size_t cubesCount = 0;
+	size_t cubesCount = 0;
 
-   Chunk()
-   {
-      glGenBuffers(1, &this->cubesPosDataVBO);
-      this->prepareGPU();
-
-
-	   this->cubesData = new Cube[CHUNK_SIZE_X*CHUNK_SIZE_Y*CHUNK_SIZE_Z];
-	   this->chunkPos = glm::vec3(0.0f);
-	   this->chunkIdx = glm::vec3(0.0f);
-   }
+	Chunk()
+	{
+		glGenBuffers(1, &this->cubesPosDataVBO);
+		this->prepareGPU();
+		this->cubesData = new Cube[CHUNK_SIZE_X*CHUNK_SIZE_Y*CHUNK_SIZE_Z];
+		this->chunkPos = glm::vec3(0.0f);
+		this->chunkIdx = glm::vec3(0.0f);
+	}
 
    void addCube(Cube cube, size_t x, size_t y, size_t z);
-   void generateCubes();
    std::optional<Cube*> tryGetCube(int x, int y, int z);
    std::vector<Cube*> getNeighboringCubes(Cube& cb);
    std::vector<Cube*> getChunkBatch(glm::vec3 idx, int batchSize);
@@ -63,9 +67,9 @@ public:
    void sendDataToVBO();
    void render();
 
-   std::vector<glm::vec3>& getCubesData();
-   std::vector<glm::vec3> cubesGPUData;
-   std::vector<glm::vec3> generateCubesGPUData();
+   std::vector<CubeGPUStruct>& getCubesData();
+   std::vector<CubeGPUStruct> cubesGPUData;
+   std::vector<CubeGPUStruct> generateCubesGPUData();
 
 };
 
@@ -76,11 +80,21 @@ public:
    std::vector<std::pair<int, int>>* loadedChunksIdxs = nullptr;
    std::vector<Chunk*>* loadedChunks = nullptr;
 
+   void generateTree(int x, int y, int z, Chunk * ch);
+
+
+   Chunk* chunkAt(int x, int y, bool generate = true);
+   Chunk* getChunk(int i, int j, bool generate = true);
+   Cube* cubeAt(int x, int y, int z);
+
+   //void addCubeAt(int x, int y, int z, Cube& cube);
+   void generateChunk(Chunk* chunk);
+
    const int chunksCount = UINT16_MAX;
    const int chunkOffset = UINT16_MAX / 2;
    const int middleChunk = UINT16_MAX / 2;
 
-   Chunk* getChunk(int i, int j);
+
    void init();
 
    World()

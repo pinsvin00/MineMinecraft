@@ -6,9 +6,9 @@ void Cube::setPosition(glm::vec3 position)
    this->processMat();
 }
 
-Cube::Cube(glm::vec3 position, Block block)
+Cube::Cube(glm::vec3 position, float block)
 {
-   this->idx = glm::vec3(0, 0, 0);
+   this->chunkPosition = glm::vec3(0, 0, 0);
    this->position = position;
    this->blockKind = block;
 }
@@ -57,7 +57,7 @@ void Cube::draw()
 
 void Cube::init()
 {
-   //przednia, prawa, lewa, z tylu, na gorze, na dole
+   //front, right, left, back, top, bottom
    const float cubeVertices[] = {
       -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, //back 
       0.5f, -0.5f, -0.5f,  0.1f, 0.0f,
