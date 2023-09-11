@@ -5,6 +5,7 @@
 #include "PerlinNoise.h"
 #include <vector>
 #include <map>
+#include <algorithm>
 #include <optional>
 
 #define CHUNK_SQUARE_LEN 8
@@ -47,6 +48,8 @@ public:
    void generateCubes();
    std::optional<Cube*> tryGetCube(int x, int y, int z);
    std::vector<Cube*> getNeighboringCubes(Cube& cb);
+   std::vector<Cube*> getChunkBatch(glm::vec3 idx, int batchSize);
+
    void calculateFace(Cube& cb);
    void calculateFaces();
 

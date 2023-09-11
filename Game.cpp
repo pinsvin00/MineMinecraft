@@ -41,24 +41,48 @@ void Game::resolveCollisions(bool yIter)
     collider->calculateModel();
     auto verts = collider->getVertices();
 
-    for (size_t i = 0; i < currentChunk->cubesCount; i++)
+    glm::vec3 flat;
+    flat.x = ceil(player->position.x);
+    flat.y = ceil(player->position.y);
+    flat.z = ceil(player->position.z);
+
+    auto chunkBatch = currentChunk->getChunkBatch(flat, 2);
+    for (auto& element : chunkBatch)
     {
-        Cube& cube = currentChunk->cubesData[i];
-        if (cube.checkCollision(collider))
-        {
-            player->position -= player->velocity * deltaTime;
-
-            if (yIter)
-            {
-                player->position.y += 0.001f;
-                player->isGrounded = true;
-                player->velocity.y = 0.0f;
-            }
-
-            break;
-        }
-
+         auto &cube = *element;
+         if (cube.checkCollision(collider))
+         {
+             player->position -= player->velocity * deltaTime;
+         
+             if (yIter)
+             {
+                 player->position.y += 0.001f;
+                 player->isGrounded = true;
+                 player->velocity.y = 0.0f;
+             }
+         
+             break;
+         }
     }
+
+    //for (size_t i = 0; i < currentChunk->cubesCount; i++)
+    //{
+    //    Cube& cube = currentChunk->cubesData[i];
+    //    if (cube.checkCollision(collider))
+    //    {
+    //        player->position -= player->velocity * deltaTime;
+
+    //        if (yIter)
+    //        {
+    //            player->position.y += 0.001f;
+    //            player->isGrounded = true;
+    //            player->velocity.y = 0.0f;
+    //        }
+
+    //        break;
+    //    }
+
+    //}
 }
 
 void Game::loadChunksAt(int x, int y)

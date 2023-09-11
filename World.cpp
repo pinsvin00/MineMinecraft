@@ -28,9 +28,10 @@ void Chunk::generateCubes()
             auto height = perlin.octave2D_01((i + chunkPos.x) * fx, (j + chunkPos.y) * fy, octaves);
             height *= 30.0;
             height = floor(height);
+            height = (double) clamp(height ,0.0, 20.0);
 
             Cube c;
-            c.position = glm::vec3((float)i + chunkPos.x, (float)height, (float)j + chunkPos.y);
+            c.position = glm::vec3(i + chunkPos.x, height, j + chunkPos.y);
             c.idx = glm::vec3(i, height, j);
             c.processMat();
 
@@ -38,10 +39,10 @@ void Chunk::generateCubes()
             for (size_t h = 0; h < height; h++)
             {
                 Cube c;
-                c.position = glm::vec3((float)i + chunkPos.x, (float)h, (float)j + chunkPos.y);
+                c.position = glm::vec3(i + chunkPos.x, h, j + chunkPos.y);
                 c.idx = glm::vec3(i, h, j);
                 c.processMat();
-                addCube(c, i, (int) height, j);
+                addCube(c, i, h, j);
             }
 
         }
@@ -138,6 +139,31 @@ void Chunk::calculateFaces()
     {
         calculateFace(cubesData[i]);
     }
+}
+
+
+std::vector<Cube*> Chunk::getChunkBatch(glm::vec3 position, int batchSize)
+{
+   std::vector<Cube*> batch;
+   position -= glm::vec3(chunkPos.x, 0, chunkPos.y);
+   //batch.reserve(batchSize * batchSize * batchSize * 8);
+
+   for (int x = -batchSize; x <= batchSize ; x++)
+   {
+      for (int y = -batchSize; y <= batchSize ; y++)
+      {
+         for (int z = -batchSize; z <= batchSize ; z++)
+         {
+            auto cube = this->tryGetCube(position.x + x, position.y + y, position.z + z);
+            if (cube.has_value())
+            {
+               batch.push_back(cube.value());
+            }
+
+         }
+      }
+   }
+   return batch;
 }
 
 void Chunk::prepareGPU()
