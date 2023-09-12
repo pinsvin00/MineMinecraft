@@ -48,9 +48,8 @@ public:
 
 
 struct RayCollisionData {
-   RayCollisionData(Cube& cube, Chunk* chunk, float collisionDistance);
-	Cube& cube;
-	Chunk* chunk = nullptr;
+   RayCollisionData(Cube* cube, float collisionDistance);
+	Cube* cube = nullptr;
 	float collisionDistance = 0.0f;
 };
 
@@ -87,12 +86,12 @@ public:
    std::unique_ptr<Player> player;
    std::unique_ptr<Crosshair> crosshair;
 
-   const float gravityAcceleration = 3.0f;
+   const float gravityAcceleration = 5.0f;
 
-   const float playerInitialJumpSpeed = 5.0f;
+   const float playerInitialJumpSpeed = 3.0f;
    const float playerVelocity = 10.0f;
 
-
+   bool reloadChunkVBO = false;
    float deltaTime;
    float lastTime;
 

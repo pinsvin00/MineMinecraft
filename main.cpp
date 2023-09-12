@@ -129,7 +129,7 @@ void render()
 
         game->blockShader->setMat4("view", view);
         game->blockShader->setMat4("projection", projection);
-
+        glBindVertexArray(Chunk::chunkVAO);
         for (size_t i = 0; i < game->world->loadedChunks->size(); i++)
         {
             auto chunk = game->world->loadedChunks->at(i);

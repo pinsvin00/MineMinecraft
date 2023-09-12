@@ -12,13 +12,15 @@
 //   GRASS = 0.0f, DIRT = 0.1, STONE, AIR
 //};
 
-const float GRASS = 0.0f;
-const float DIRT = 0.1f;
-const float STONE = 0.2f;
-const float WOOD = 0.3f;
-const float LEAVES = 0.4f;
+const float GRASS    = 0.0f;
+const float DIRT     = 0.1f;
+const float STONE    = 0.2f;
+const float WOOD     = 0.3f;
+const float LEAVES   = 0.4f;
+const float WATER    = 0.5f;
 
 
+class Chunk;
 class Cube {
 
 private:
@@ -31,9 +33,10 @@ public:
    glm::vec3 scale = glm::vec3(1.0f);
 
    Shader* shader = nullptr;
+   Chunk* cubesChunk = nullptr;
    bool destroyed = false;
    float blockKind = GRASS;
-   uint8_t facesToRender = 0;
+   uint8_t facesToRender = 0b111111;
 
    bool isInitialized = false;
    bool vertsCalculated = false;

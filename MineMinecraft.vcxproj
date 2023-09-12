@@ -138,6 +138,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Chunk.cpp" />
     <ClCompile Include="Crosshair.cpp" />
     <ClCompile Include="Cube.cpp" />
     <ClCompile Include="Game.cpp" />
@@ -149,6 +150,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Chunk.h" />
     <ClInclude Include="Crosshair.h" />
     <ClInclude Include="Cube.h" />
     <ClInclude Include="Game.h" />
@@ -199,6 +201,7 @@
     <ClInclude Include="PerlinNoise.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="Utils.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>
   <ItemGroup>
