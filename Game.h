@@ -21,7 +21,8 @@ public:
 	static constexpr inline uint8_t KEY_S = 1;
 	static constexpr inline uint8_t KEY_A = 2;
 	static constexpr inline uint8_t KEY_D = 3;
-	static constexpr inline uint8_t KEY_SPACE = 4;
+   static constexpr inline uint8_t KEY_SPACE = 4;
+
 	bool isLocked = false;
 
 	KeyboardData()
@@ -56,9 +57,10 @@ struct RayCollisionData {
 
 class Player {
 public:
-   std::unique_ptr<Camera> camera = nullptr;
+   std::shared_ptr<Camera> camera = nullptr;
    std::shared_ptr<RectangularCollider> collider = nullptr;
    std::shared_ptr<World>  world = nullptr;
+   int blockToPlaceIdx = 1;
 
 
    glm::vec3 position = glm::vec3(1.0f);
@@ -86,6 +88,10 @@ public:
    std::unique_ptr<Player> player;
    std::unique_ptr<Crosshair> crosshair;
 
+   //all info to transparent cubes
+   std::vector<CubeGPUStruct> transparentCubesInfo;
+   Cube* outlinedCube;
+
    const float gravityAcceleration = 5.0f;
 
    const float playerInitialJumpSpeed = 3.0f;
@@ -94,15 +100,20 @@ public:
    bool reloadChunkVBO = false;
    float deltaTime;
    float lastTime;
+   int blockToPlaceIdx = 1;
 
    Shader* crosshairShader;
    Shader* blockShader;
    std::vector<Cube*> cubes;
    KeyboardData& kbData;
 
-   Cube specialCube;
+   glm::vec3 skyColor;
+   glm::vec3 lightDirection;
+   float lightIntensity;
 
    void processGame();
+   void processDayNightCycle();
+
 
    void findNewCurrentChunk();
    bool pointInChunk(glm::vec2 ppos, Chunk& c);

@@ -18,6 +18,8 @@ const float STONE    = 0.2f;
 const float WOOD     = 0.3f;
 const float LEAVES   = 0.4f;
 const float WATER    = 0.5f;
+const float GLASS    = 0.6f;
+const float PLANK    = 0.7f;
 
 
 class Chunk;
@@ -27,15 +29,18 @@ private:
    Shader* cubeShader = nullptr;
 public:
    //instance data of cube
-   glm::mat4 model = glm::mat4(1.0f);
    glm::vec3 position = glm::vec3(0.0f);
    glm::vec3 chunkPosition = glm::vec3(0.0f);
-   glm::vec3 scale = glm::vec3(1.0f);
-
-   Shader* shader = nullptr;
    Chunk* cubesChunk = nullptr;
    bool destroyed = false;
+   int inChunkIdx = 0;
    float blockKind = GRASS;
+
+   bool isTransparent()
+   {
+      return blockKind == WATER || blockKind == LEAVES || blockKind == GLASS;
+   }
+
    uint8_t facesToRender = 0b111111;
 
    bool isInitialized = false;
@@ -91,11 +96,9 @@ public:
 
    Box3 getCollider();
 
-   std::array<glm::vec3,8> getVertices();
+   std::array<glm::vec3,8> getWorldVertices();
    void clearVertices();
-
-   void processMat();
-   void draw();
+   void drawSingular();
    static void init();
    static unsigned int VAO;
    static unsigned int VBO;
@@ -152,7 +155,7 @@ public:
 template<typename T>
 bool Cube::checkCollision(T c)
 {
-    std::array<glm::vec3, 8> myVerts = this->getVertices();
+    std::array<glm::vec3, 8> myVerts = this->getWorldVertices();
     std::array<glm::vec3, 8> theirVerts = c->getVertices();
 
     auto m_vecMin_1 = myVerts[LEFT_DOWN_1];

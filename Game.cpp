@@ -6,13 +6,16 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    Crosshair::init();
    Chunk::prepareGPU();
 
+
+
    deltaTime = 0.0f;
    blockShader = new Shader("shader.hlsl", "shader_frag.hlsl"); // you can name your shader files however you like
    crosshairShader = new Shader("crosshair_vert.hlsl", "crosshair_frag.hlsl");
    crosshair = std::make_unique<Crosshair>();
-
+   Chunk::vboPool.init(CHUNK_ARR_SIZ * 4);
    world = std::make_shared<World>();
-   Chunk::vboPool.init(CHUNK_ARR_SIZ*4);
+
+
 
    this->loadChunksAt(0, 0);
 
@@ -32,6 +35,8 @@ Game::Game(KeyboardData& kbData) : kbData(kbData)
    playerPosition += glm::vec3(0, 1, 0);
 
    this->player = std::make_unique<Player>(world, playerPosition);
+   Chunk::cam = player->camera;
+
 }
 
 void Game::resolveCollisions(bool yIter)
@@ -119,7 +124,7 @@ inline bool Game::pointInChunk(glm::vec2 ppos, Chunk& c)
 
 void Game::processGame()
 {
-
+   this->processDayNightCycle();
    float currentTime = glfwGetTime();
    this->deltaTime = currentTime - lastTime;
    this->lastTime = currentTime;
@@ -165,11 +170,35 @@ void Game::processGame()
    player->collider->position = player->position;
    player->camera->position = player->position;
 
+
+   auto data = this->player->getCubeAtGunPoint();
+   this->outlinedCube = data.cube;
+
+}
+
+void Game::processDayNightCycle()
+{
+   const float TIME_SPEED_FACTOR = 0.01;
+   auto period = cos(lastTime * TIME_SPEED_FACTOR) + 1.0f;
+
+
+   glm::vec3 daySkyColor = glm::vec3(0.3, 0.4, 0.7);
+   glm::vec3 nightSkyColor = glm::vec3(0.1, 0.1, 0.1);
+
+   this->lightDirection = glm::vec3(
+      sin(lastTime * TIME_SPEED_FACTOR),
+      0.7,
+      cos(lastTime * TIME_SPEED_FACTOR)
+   );
+
+   this->lightIntensity = period * 0.7f;
+   this->skyColor = nightSkyColor + (daySkyColor - nightSkyColor) * glm::vec3(period);
+
+
 }
 
 void Game::findNewCurrentChunk()
 {
-   std::cout << "NEW CHUNK" << std::endl;
    glm::vec2 ppos = glm::vec2(this->player->position.x, this->player->position.z);
    Chunk* currentChunk = nullptr;
 
@@ -217,11 +246,23 @@ void Game::findNewCurrentChunk()
       this->currentChunk = currentChunk;
    }
 
-   delete world->loadedChunks;
-   delete world->loadedChunksIdxs;
+   sort(newWorldChunks->begin(), newWorldChunks->end(), [=] (const Chunk* a, const Chunk* b) {
+      glm::vec2 p1 = a->chunkPos + glm::vec2(8, 8);
+      glm::vec2 p2 = b->chunkPos + glm::vec2(8, 8);
 
+      return glm::length(p1 - glm::vec2(player->camera->position.x, player->camera->position.y))
+           > glm::length(p2 - glm::vec2(player->camera->position.x, player->camera->position.y));
+   });
+
+   auto oldChunks = world->loadedChunks;
+   auto oldIdxs = world->loadedChunksIdxs;
+
+   
    world->loadedChunks     = newWorldChunks;
    world->loadedChunksIdxs = newWorldIdx;
+
+   delete oldChunks;
+   delete oldIdxs;
 }
 
 void Game::processKb(GLFWwindow* window)
@@ -347,10 +388,18 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 
       float distance = glm::distance(collisionData.cube->position, this->position);
       collisionData.cube->destroyed = true;
-
-      auto neighbors = collisionData.cube->cubesChunk->getNeighboringCubes(*collisionData.cube);
       collisionData.cube->cubesChunk->isCubeDataValid = false;
+
+
+      auto cube = collisionData.cube;
+
+      auto nbs = cube->cubesChunk->getNeighboringCubes(*cube);
+      for (auto element : nbs)
+      {
+         element->cubesChunk->calculateFace(*element);
+      }
       collisionData.cube->cubesChunk->sendDataToVBO();
+
    }
    if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
    {
@@ -413,12 +462,21 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 
       //render all faces of the cube
       newCube.facesToRender = 0b111111;
-      newCube.position = cube->position + directions[faceIdx] ;
+      newCube.position = cube->position + directions[faceIdx];
+      newCube.blockKind = this->blockToPlaceIdx * 0.1;
       newCube.chunkPosition = cube->chunkPosition + directions[faceIdx];
 
       collisionData.cube->cubesChunk->addCube(newCube, newCube.chunkPosition.x, newCube.chunkPosition.y, newCube.chunkPosition.z);
       collisionData.cube->cubesChunk->calculateFace(newCube);
-      collisionData.cube->cubesChunk->sendDataToVBO();
+
+      if (newCube.isTransparent())
+      {
+         collisionData.cube->cubesChunk->isTransparentDataValid = false;
+      }
+      else
+      {
+         collisionData.cube->cubesChunk->isCubeDataValid = false;
+      }
 
    }
 }

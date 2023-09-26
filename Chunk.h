@@ -5,7 +5,9 @@
 #include "Cube.h"
 #include <vector>
 #include "Utils.h"
+#include "Camera.h"
 #include <map>
+#include <ranges>
 #include <algorithm>
 #include <optional>
 
@@ -20,6 +22,7 @@ public:
 	bool isGenerated = false;
 	glm::vec2 chunkPos;
 	glm::vec2 chunkIdx;
+	static inline std::shared_ptr<Camera> cam = nullptr;
 
 	//memory arena for the cubes, serves also as new cube map
 	Cube* cubesData = nullptr;
@@ -44,7 +47,6 @@ public:
 	void calculateFace(Cube& cb);
 	void calculateFaces();
 
-	bool isCubeDataValid = false;
 
 	static inline unsigned int chunkVAO = 0;
 	static inline unsigned int cubeVBO = 0;
@@ -55,9 +57,18 @@ public:
 	static void prepareGPU();
 	void sendDataToVBO();
 	void render();
+	void renderTransparent();
+
+
+	bool isCubeDataValid = false;
+	bool isTransparentDataValid = false;
 
 	std::vector<CubeGPUStruct>& getCubesData();
+	std::vector<CubeGPUStruct>& getTransparentData();
 	std::vector<CubeGPUStruct> cubesGPUData;
+	std::vector<CubeGPUStruct> transparentCubesGPUData;
+
 	void generateCubesGPUData();
+	void generateTransparentGPUData();
 
 };

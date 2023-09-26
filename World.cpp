@@ -139,7 +139,6 @@ void World::generateChunk(Chunk* chunk)
             c.blockKind = GRASS;
             c.position = glm::vec3(i + chunk->chunkPos.x, height, j + chunk->chunkPos.y);
             c.chunkPosition = glm::vec3(i, height, j);
-            c.processMat();
 
             if (height >= 13 && rand() % 100 == 0)
             {

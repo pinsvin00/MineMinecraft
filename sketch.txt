@@ -1,0 +1,16 @@
+
+
+vec3 toSquareX(float time)
+{
+	return vec2(sin(t), sign(cos(t)))
+}
+
+vec3 toSquareY(float time)
+{
+	return vec2(sign(sin(t)), cos(t))
+}
+
+void main()
+{
+	
+}

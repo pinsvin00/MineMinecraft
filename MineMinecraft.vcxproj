@@ -146,6 +146,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PerlinNoise.cpp" />
     <ClCompile Include="Shader.cpp" />
+    <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="World.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -200,6 +201,7 @@
     <ClInclude Include="m_math.h" />
     <ClInclude Include="PerlinNoise.h" />
     <ClInclude Include="Shader.h" />
+    <ClInclude Include="Skybox.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="Utils.h" />
     <ClInclude Include="World.h" />
@@ -227,6 +229,11 @@
     <None Include="include\glm\gtc\ulp.inl" />
     <None Include="shader_frag.hlsl" />
     <None Include="shader.hlsl" />
+	<None Include="skybox.hlsl" />
+    <None Include="skybox_frag.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
