@@ -74,6 +74,86 @@ void Game::resolveCollisions(bool yIter)
     }
 }
 
+void Game::expandWater(Cube& water, int power)
+{
+   if (power == 0)
+   {
+      return;
+   }
+
+   std::vector<glm::vec3> waterDirections = {
+      glm::vec3(0 ,-1,0),
+      glm::vec3(-1,0 ,0),
+      glm::vec3(1 ,0 ,0),
+      glm::vec3(0 ,0 ,-1),
+      glm::vec3(0 ,0, 1),
+   };
+
+   bool isGrounded = false;
+   auto cubeBelow = this->world->getCubeAt(water.position.x, water.position.y - 1, water.position.z);
+   if (cubeBelow.has_value())
+   {
+      auto cubeValue = cubeBelow.value();
+      if (cubeValue->blockKind != WATER)
+      {
+         isGrounded = true;
+      }
+   }
+   else
+   {
+      isGrounded = false;
+   }
+   Cube newWaterCube;
+   newWaterCube.blockKind = WATER;
+
+   for (size_t i = 0; i < waterDirections.size(); i++)
+   {
+      if (i == 0)
+      {
+         if (!isGrounded)
+         {
+
+            newWaterCube.position = water.position + waterDirections[i];
+
+            const auto chunk = world->chunkAt(newWaterCube.position.x, newWaterCube.position.z, false);
+            chunk->isTransparentDataValid = false;
+            const auto &cubePos = newWaterCube.position;
+            auto cubeChunkPos = glm::vec3(
+               cubePos.x - chunk->chunkPos.x,
+               cubePos.y,
+               cubePos.z - chunk->chunkPos.y
+            );
+
+
+            //problem
+            auto cube = chunk->addCube(newWaterCube, cubeChunkPos.x, cubeChunkPos.y, cubeChunkPos.z);
+            this->waterExpandInfo.cubesToExpand.push_back(std::make_pair(cube, power - 1));
+            break;
+         }
+      }
+
+      newWaterCube.position = water.position + waterDirections[i];
+      const auto cubeToExpand = world->getCubeAt(newWaterCube.position.x, newWaterCube.position.y, newWaterCube.position.z);
+      if (cubeToExpand.has_value())
+      {
+         continue;
+      }
+
+      const auto chunk = world->chunkAt(newWaterCube.position.x, newWaterCube.position.z, false);
+      chunk->isTransparentDataValid = false;
+      const auto& cubePos = newWaterCube.position;
+      auto cubeChunkPos = glm::vec3(
+         cubePos.x - chunk->chunkPos.x,
+         cubePos.y,
+         cubePos.z - chunk->chunkPos.y
+      );
+      auto cube = chunk->addCube(newWaterCube, cubeChunkPos.x, cubeChunkPos.y, cubeChunkPos.z);
+      this->waterExpandInfo.cubesToExpand.push_back(std::make_pair(cube, power - 1));
+
+
+   }
+}
+
 void Game::loadChunksAt(int x, int y)
 {
    Chunk* chunk = world->getChunkByIdx(x, y);
@@ -171,14 +251,26 @@ void Game::processGame()
    player->camera->position = player->position;
 
 
-   auto data = this->player->getCubeAtGunPoint();
+   auto data = this->getCubeAtGunPoint();
    this->outlinedCube = data.cube;
+
+
+   if (!waterExpandInfo.cubesToExpand.empty() && currentTime - waterExpandInfo.lastTimeExpand >= WaterExpandInfo::TIME_DIFF_EXPAND_WATER)
+   {
+      auto cubesToExpand = waterExpandInfo.cubesToExpand;
+      waterExpandInfo.cubesToExpand.clear();
+
+      for (auto& element : cubesToExpand)
+      {
+         expandWater(*element.first, element.second);
+      }
+      waterExpandInfo.lastTimeExpand = currentTime;
+   }
 
 }
 
 void Game::processDayNightCycle()
 {
-   const float TIME_SPEED_FACTOR = 0.01;
    auto period = cos(lastTime * TIME_SPEED_FACTOR) + 1.0f;
 
 
@@ -304,11 +396,6 @@ void Game::onMouseMove(GLFWwindow* window, double xpos, double ypos)
    player->onMouseMove(window, xpos, ypos);
 }
 
-void Game::onMouseClick(GLFWwindow* window, int button, int action, int mods)
-{
-   player->onMouseClick(window, button, action, mods);
-}
-
 
 void Player::draw() {
 
@@ -319,15 +406,15 @@ void Player::onMouseMove(GLFWwindow* window, double xpos, double ypos)
    camera->mouse_callback(window, (float)xpos, (float)ypos);
 }
 
-RayCollisionData Player::getCubeAtGunPoint()
+RayCollisionData Game::getCubeAtGunPoint()
 {
-   Ray ray(this->position, camera->front);
+   Ray ray(this->player->position, player->camera->front);
 
    Cube* closestCube = nullptr;
    Chunk* cubesChunk = nullptr;
    float collisionDistanceCube = -1.0f;
 
-   auto batch = this->world->getBatch(this->position, 8);
+   auto batch = this->world->getBatch(this->player->position, 8);
 
    for (auto& element : batch)
    {
@@ -337,8 +424,8 @@ RayCollisionData Player::getCubeAtGunPoint()
       {
          if (closestCube != nullptr)
          {
-            float dn = glm::distance(closestCube->position, position);
-            float dc = glm::distance(cube->position, position);
+            float dn = glm::distance(closestCube->position, player->position);
+            float dc = glm::distance(cube->position, player->position);
             if (dn > dc)
             {
                closestCube = cube;
@@ -374,7 +461,7 @@ void Player::setPosition(glm::vec3 pos)
    this->camera->position = std::move(pos);
 }
 
-void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
+void Game::onMouseClick(GLFWwindow* window, int button, int action, int mods)
 {
    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
    {
@@ -386,7 +473,7 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
          return;
       }
 
-      float distance = glm::distance(collisionData.cube->position, this->position);
+      float distance = glm::distance(collisionData.cube->position, this->player->position);
       collisionData.cube->destroyed = true;
       collisionData.cube->cubesChunk->isCubeDataValid = false;
 
@@ -398,6 +485,8 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       {
          element->cubesChunk->calculateFace(*element);
       }
+
+
       collisionData.cube->cubesChunk->sendDataToVBO();
 
    }
@@ -407,8 +496,8 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       auto& cube = collisionData.cube;
 
       //glm::vec3 point = this->position;
-      glm::vec3 distance = (this->camera->front * collisionData.collisionDistance);
-      glm::vec3 pointCoords = this->position + distance;
+      glm::vec3 distance = (this->player->camera->front * collisionData.collisionDistance);
+      glm::vec3 pointCoords = this->player->position + distance;
 
       ////find closest face of cube, or check collision with each face?
       std::vector<Box3> faceBoxes = {
@@ -466,7 +555,7 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       newCube.blockKind = this->blockToPlaceIdx * 0.1;
       newCube.chunkPosition = cube->chunkPosition + directions[faceIdx];
 
-      collisionData.cube->cubesChunk->addCube(newCube, newCube.chunkPosition.x, newCube.chunkPosition.y, newCube.chunkPosition.z);
+      auto cubePtr = collisionData.cube->cubesChunk->addCube(newCube, newCube.chunkPosition.x, newCube.chunkPosition.y, newCube.chunkPosition.z);
       collisionData.cube->cubesChunk->calculateFace(newCube);
 
       if (newCube.isTransparent())
@@ -476,6 +565,11 @@ void Player::onMouseClick(GLFWwindow* window, int button, int action, int mods)
       else
       {
          collisionData.cube->cubesChunk->isCubeDataValid = false;
+      }
+
+      if (this->blockToPlaceIdx == Blocks::WATER_IDX)
+      {
+         waterExpandInfo.cubesToExpand.push_back(std::make_pair(cubePtr, 5));
       }
 
    }

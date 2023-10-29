@@ -145,8 +145,11 @@
     <ClCompile Include="include\glad\glad.c" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="PerlinNoise.cpp" />
+    <ClCompile Include="Render.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Skybox.cpp" />
+    <ClCompile Include="UiRectangle.cpp" />
+    <ClCompile Include="Window.cpp" />
     <ClCompile Include="World.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -200,10 +203,13 @@
     <ClInclude Include="include\glm\vector_relational.hpp" />
     <ClInclude Include="m_math.h" />
     <ClInclude Include="PerlinNoise.h" />
+    <ClInclude Include="Render.h" />
     <ClInclude Include="Shader.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="stb_image.h" />
+    <ClInclude Include="UiRectangle.h" />
     <ClInclude Include="Utils.h" />
+    <ClInclude Include="Window.h" />
     <ClInclude Include="World.h" />
   </ItemGroup>
   <ItemGroup>
@@ -229,11 +235,12 @@
     <None Include="include\glm\gtc\ulp.inl" />
     <None Include="shader_frag.hlsl" />
     <None Include="shader.hlsl" />
-	<None Include="skybox.hlsl" />
+    <None Include="skybox.hlsl" />
     <None Include="skybox_frag.hlsl" />
-  </ItemGroup>
-  <ItemGroup>
-
+    <None Include="uiVertexShader.hlsl" />
+    <None Include="uiPixelShader.hlsl" />
+	<None Include="minatureShader.hlsl" />
+    <None Include="minatureShader_frag.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

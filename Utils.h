@@ -1,8 +1,11 @@
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
+
 #include <vector>
 #include "glm/glm.hpp"
 #include "Cube.h"
 #include "PerlinNoise.h"
+
 
 struct VBOPool {
 
@@ -40,3 +43,38 @@ struct CubeGPUStruct {
    float blockType;
 };
 
+struct KeyboardData {
+private:
+public:
+   std::bitset<16> pressedKeys;
+   static constexpr inline uint8_t KEY_W = 0;
+   static constexpr inline uint8_t KEY_S = 1;
+   static constexpr inline uint8_t KEY_A = 2;
+   static constexpr inline uint8_t KEY_D = 3;
+   static constexpr inline uint8_t KEY_SPACE = 4;
+
+   bool isLocked = false;
+
+   KeyboardData()
+   {
+      pressedKeys = 0;
+   }
+
+   void setKeyPressed(uint8_t key, bool isPressed)
+   {
+      pressedKeys[key] = isPressed;
+   }
+
+   void reset()
+   {
+      pressedKeys.reset();
+   }
+
+   bool isKeyPressed(uint8_t key)
+   {
+      return pressedKeys[key];
+   }
+
+};
+
+#endif

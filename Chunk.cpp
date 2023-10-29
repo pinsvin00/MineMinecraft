@@ -1,6 +1,6 @@
 #include "Chunk.h"
 
-void Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
+Cube* Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
 {
    this->isCubeDataValid = false;
    this->cubesData[cubesCount] = std::move(cube);
@@ -10,6 +10,8 @@ void Chunk::addCube(Cube cube, size_t x, size_t y, size_t z)
    this->cubesCount += 1;
 
    this->isCubeDataValid = false;
+
+   return &this->cubesData[cubesCount - 1];
 }
 
 std::optional<Cube*> Chunk::getCubeByChunkPos(int x, int y, int z)

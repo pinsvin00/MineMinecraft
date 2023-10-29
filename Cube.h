@@ -21,6 +21,12 @@ const float WATER    = 0.5f;
 const float GLASS    = 0.6f;
 const float PLANK    = 0.7f;
 
+namespace Blocks {
+   constexpr int WATER_IDX = 5;
+   constexpr int GLASS_IDX = 6;
+   constexpr int PLANK_IDX = 7;
+}
+
 
 class Chunk;
 class Cube {

@@ -40,7 +40,7 @@ public:
 		this->chunkIdx = glm::vec3(0.0f);
 	}
 
-	void addCube(Cube cube, size_t x, size_t y, size_t z);
+	Cube* addCube(Cube cube, size_t x, size_t y, size_t z);
 	std::optional<Cube*> getCubeByChunkPos(int x, int y, int z);
 	std::vector<Cube*> getNeighboringCubes(Cube& cb);
 
