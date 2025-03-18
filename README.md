@@ -1,4 +1,4 @@
-# Minecraft rip off simple as
+# Minecraft ripoff
 Please build the game using Visual Studio
 
 # Demo
